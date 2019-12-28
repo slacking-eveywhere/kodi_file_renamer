@@ -14,15 +14,32 @@ class TVDB:
             "language": language
         }
 
-    def search_movie(self, query):
+    def search_movies(self, query):
         url = TVDB_URL + 'search/movie'
         params = {"query": query}
         params.update(self.parameters)
         req = requests.get(url, params=params)
+
         return [
             (
+                result.get("id"),
                 result.get("original_title"),
                 datetime.strptime(result.get("release_date"), "%Y-%m-%d")
+            )
+            for result in req.json().get("results", [])
+        ]
+
+    def search_tv_shows(self, query):
+        url = TVDB_URL + 'search/tv'
+        params = {"query": query}
+        params.update(self.parameters)
+        req = requests.get(url, params=params)
+
+        return [
+            (
+                result.get("id"),
+                result.get("original_name"),
+                datetime.strptime(result.get("first_air_date"), "%Y-%m-%d")
             )
             for result in req.json().get("results", [])
         ]
@@ -30,5 +47,7 @@ class TVDB:
 
 if __name__ == "__main__":
     a = TVDB("9ec9de2268745b801af7c5f21d2a16b8")
-    b = a.search_movie("Victoria")
-    print(b)
+    b = a.search_movies("Victoria")
+    c = a.search_tv_shows("game+of+thrones")
+
+    print(c)
