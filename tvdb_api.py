@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from datetime import datetime
 import requests
-from pprint import pprint
 
 TVDB_URL = "https://api.themoviedb.org/3/"
 
@@ -18,11 +18,17 @@ class TVDB:
         url = TVDB_URL + 'search/movie'
         params = {"query": query}
         params.update(self.parameters)
-        result = requests.get(url, params=params)
-        return result.json()
+        req = requests.get(url, params=params)
+        return [
+            (
+                result.get("original_title"),
+                datetime.strptime(result.get("release_date"), "%Y-%m-%d")
+            )
+            for result in req.json().get("results", [])
+        ]
 
 
 if __name__ == "__main__":
     a = TVDB("9ec9de2268745b801af7c5f21d2a16b8")
-    b = a.search_movie("VERY BAD TRIP")
-    pprint(b)
+    b = a.search_movie("Victoria")
+    print(b)
