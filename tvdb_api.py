@@ -4,13 +4,18 @@
 import os
 from os import path
 from datetime import datetime
+import re
+import pathlib
 import requests
 from list_movie import MovieList
+from list_tvshow import TVShowList
 from movie import MoviePropositionsList, MovieProposition
+from tvshow import TVShowPropositionsList, TVShowProposition
 
 TVDB_URL = "https://api.themoviedb.org/3/"
-MOVIE_PATH = "/Volumes/media/films"
-MOVIE_PATH_SORTED = "/Volumes/media/films/sorted"
+MOVIE_PATH = "/Volumes/medias/divers/rsync/to sort"
+MOVIE_PATH_SORTED = "/Volumes/medias/divers/rsync/sorted"
+TVSHOW_PATH = "/Volumes/medias/series"
 
 
 class TVDB:
@@ -41,18 +46,28 @@ class TVDB:
 
     def search_tv_shows(self, query):
         url = path.join(TVDB_URL, 'search', 'tv')
-        params = {"query": query}
+
+        if re.search("\(([0-9]*?)\)", query):
+            params = {
+                "query": query[:-6],
+                "first_air_date_year": query[-5:-1]
+            }
+        else:
+            params = {"query": query}
         params.update(self.parameters)
         req = requests.get(url, params=params)
 
-        return [
-            (
-                str(result.get("id")),
-                result.get("original_name"),
-                datetime.strptime(result.get("first_air_date"), "%Y-%m-%d")
-            )
+        return TVShowPropositionsList(query, [
+            TVShowProposition(**{
+                "_id": str(result.get("id")),
+                "title": result.get("name"),
+                "original_title": result.get("original_name"),
+                "language": result.get("original_language"),
+                "overview": result.get("overview"),
+                "release_date": parse_release_date(result.get("first_air_date"))
+            })
             for result in req.json().get("results", [])
-        ]
+        ])
 
     def get_movie_overview_by_id(self, id):
         movie = self.get_movie_by_id(id)
@@ -108,6 +123,13 @@ def list_movie():
         yield movie_name, movie_filename, movie_propositions, extension, duration
 
 
+def list_tvshow():
+    tvdb = TVDB("9ec9de2268745b801af7c5f21d2a16b8")
+    tvshow_list = TVShowList(TVSHOW_PATH)
+    for tvshow_name in tvshow_list:
+        yield tvshow_name, tvdb.search_tv_shows(tvshow_name)
+
+
 def propose_choice(movies_list):
     for movie_name, movie_filename, movie_propositions, extension, duration in movies_list:
         selected_movie = movie_propositions.choice(int(duration / 60))
@@ -121,6 +143,50 @@ def propose_choice(movies_list):
         os.system("clear")
 
 
+def propose_choice_tv(tvshow_list):
+    for tvshow_name, tvshow_propositions in tvshow_list:
+        selected_tvshow = tvshow_propositions.choice()
+        if selected_tvshow:
+            current_path = os.path.join(TVSHOW_PATH, tvshow_name)
+            new_path = os.path.join(TVSHOW_PATH, selected_tvshow.get_file_name())
+            if current_path != new_path:
+                os.rename(current_path, new_path)
+
+            old_paths = []
+            new_paths = []
+
+            for episode in sorted(os.listdir(new_path)):
+                if not episode.startswith("."):
+                    episode_path = os.path.join(new_path, episode)
+                    ext = pathlib.Path(episode_path).suffix
+
+                    season, ep_number = None, None
+
+                    try:
+                        season, ep_number = re.search("S([0-9]{1,2})E([0-9]{1,2})", episode).groups()
+                    except AttributeError:
+                        pass
+                    try:
+                        season, ep_number = re.search("s([0-9]{1,2})e([0-9]{1,2})", episode).groups()
+                    except AttributeError:
+                        pass
+                    try:
+                        season, ep_number = re.search("([0-9]{1,2})x([0-9]{1,2})", episode).groups()
+                    except AttributeError:
+                        pass
+
+                    if season and ep_number:
+                        new_name = os.path.join(new_path, f"{ selected_tvshow.get_file_name() } S{ season }E{ ep_number }{ ext }")
+                        # old_paths.append(episode_path)
+                        # new_paths.append(new_name)
+                        os.rename(episode_path, new_name)
+            # for index, pa in enumerate(old_paths):
+            #     print(pa, new_paths[index])
+            # input("bla")
+
+        os.system("clear")
+
+
 def create_dir(dirpath):
     try:
         os.mkdir(dirpath)
@@ -129,10 +195,11 @@ def create_dir(dirpath):
 
 
 if __name__ == "__main__":
-    movies_list = list_movie()
-    propose_choice(list(movies_list))
+    # movies_list = list_movie()
+    # propose_choice(list(movies_list))
 
-    # c = a.search_tv_shows("game+of+thrones")
+    tvdb_list = list_tvshow()
+    propose_choice_tv(list(tvdb_list))
 
     # id, tv_name, release_date = c[0]
     # print(a.get_tv_shows_by_id(id))
