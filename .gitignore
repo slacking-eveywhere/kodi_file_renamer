@@ -130,3 +130,5 @@ dmypy.json
 
 #idea parameters
 .idea/
+
+.DS_Store
