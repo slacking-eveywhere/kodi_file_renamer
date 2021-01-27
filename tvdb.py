@@ -10,6 +10,7 @@ from tvshow import TVShowPropositionsList, TVShowProposition
 
 TVDB_URL = "https://api.themoviedb.org/3/"
 
+
 class TVDB:
     def __init__(self, apikey, language="fr"):
         self.parameters = {
@@ -38,7 +39,6 @@ class TVDB:
 
     def search_tv_shows(self, query):
         url = path.join(TVDB_URL, 'search', 'tv')
-
         if re.search("\(([0-9]*?)\)", query):
             params = {
                 "query": query[:-6],

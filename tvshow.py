@@ -45,7 +45,7 @@ class TVShowPropositionsList:
 
             try:
                 answers = prompt(questions)
-                if answers["propositions"] > -1:
+                if answers.get("propositions", -1) > -1:
                     return self.__propositions[answers["propositions"]]
                 else:
                     return None
