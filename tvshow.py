@@ -73,6 +73,6 @@ class TVShowProposition:
    overview        :   { self.overview }"""
 
     def get_file_name(self, extension=""):
-        original_title_corrected = self.original_title.replace(":", "-")
+        original_title_corrected = self.original_title.replace(":", "")
         original_title_corrected = original_title_corrected.replace("/", " ")
         return f"{ original_title_corrected } ({ self.release_date.year }){ extension }"

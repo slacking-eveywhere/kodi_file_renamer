@@ -47,6 +47,7 @@ class TVDB:
         else:
             params = {"query": query}
         params.update(self.parameters)
+        print(params)
         req = requests.get(url, params=params)
 
         return TVShowPropositionsList(query, [

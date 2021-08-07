@@ -1,9 +1,11 @@
-
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
 import os
 from pathlib import Path
 import re
 import unidecode
+import unicodedata2
 from tvdb import TVDB
 from list_movie import MovieList
 from list_tvshow import TVShowList, TVShowEpisodesList
@@ -12,7 +14,7 @@ from database import TVShowsModel
 DB_NAME = "database.sql"
 MOVIE_PATH = "/Volumes/medias/divers/rsync/to sort"
 MOVIE_PATH_SORTED = "/Volumes/medias/divers/rsync/sorted"
-TVSHOW_PATH = "/Volumes/medias/series"
+TVSHOW_PATH = "/Volumes/medias/divers/rsync/series"
 
 
 def list_movie():
@@ -34,9 +36,9 @@ def list_tvshow(force_rescan=False):
     for tvshow_name in tvshow_list:
         if tvshow_model.get_tvshow_by_name(tvshow_name) and force_rescan is False:
             continue
+        print(tvshow_name.encode("utf-8"))
         tvshow_name_decoded = unidecode.unidecode(tvshow_name)
-        print(tvshow_name_decoded)
-        yield tvshow_name, tvdb.search_tv_shows(tvshow_name_decoded)
+        yield tvshow_name, tvdb.search_tv_shows(tvshow_name)
 
 
 def list_tvshow_episodes(tvshow_name):
@@ -50,9 +52,9 @@ def list_tvshow_episodes(tvshow_name):
         try:
             new_episode_path = Path(
                 episode_path.parent,
-                f"""{episode_path.parent.name} {tvshow_episode_details["name"]} S{str(tvshow_episode_details["season_number"]).zfill(2)}E{str(tvshow_episode_details["episode_number"]).zfill(2)}{episode_path.suffix}""")
+                f"""{episode_path.parent.name} S{str(tvshow_episode_details["season_number"]).zfill(2)}E{str(tvshow_episode_details["episode_number"]).zfill(2)} {tvshow_episode_details["name"]}{episode_path.suffix}""")
 
-            # print(new_episode_path)
+            print(new_episode_path)
             tvshow_model.set_or_update_tvshow_episode(
                 tvshow_episode_details["id"],
                 tvshow_episode_details["name"],
@@ -131,7 +133,8 @@ if __name__ == "__main__":
     # propose_choice(list(movies_list))
 
     tvdb_list = list(list_tvshow(True))
-    # propose_choice_tv(tvdb_list)
+    propose_choice_tv(tvdb_list)
 
-    for _tvshow in tvdb_list:
-        list_tvshow_episodes(_tvshow[0])
+    # for _tvshow in tvdb_list:
+    #     list_tvshow_episodes(_tvshow[0])
+
