@@ -4,7 +4,6 @@
 import os
 from pathlib import Path
 import re
-import unidecode
 import unicodedata2
 from tvdb import TVDB
 from list_movie import MovieList
@@ -15,6 +14,8 @@ DB_NAME = "database.sql"
 MOVIE_PATH = "/Volumes/medias/divers/rsync/to sort"
 MOVIE_PATH_SORTED = "/Volumes/medias/divers/rsync/sorted"
 TVSHOW_PATH = "/Volumes/medias/divers/rsync/series"
+
+UNICODE_NORMALIZE_FORM_VALUE = "NFKC"
 
 
 def list_movie():
@@ -36,13 +37,15 @@ def list_tvshow(force_rescan=False):
     for tvshow_name in tvshow_list:
         if tvshow_model.get_tvshow_by_name(tvshow_name) and force_rescan is False:
             continue
-        print(tvshow_name.encode("utf-8"))
-        tvshow_name_decoded = unidecode.unidecode(tvshow_name)
-        yield tvshow_name, tvdb.search_tv_shows(tvshow_name)
+        yield tvshow_name, tvdb.search_tv_shows(
+            unicodedata2.normalize(
+                UNICODE_NORMALIZE_FORM_VALUE,
+                tvshow_name
+            )
+        )
 
 
 def list_tvshow_episodes(tvshow_name):
-    print(tvshow_name)
     tvshow_model = TVShowsModel(DB_NAME)
     tvshow = tvshow_model.get_tvshow_by_name(tvshow_name)
 
@@ -50,11 +53,15 @@ def list_tvshow_episodes(tvshow_name):
         tvshow_episode_details = get_tvshow_episode_details(tvshow.id, episode_path)
 
         try:
+            episode_name = tvshow_episode_details["name"]
+
+            if "/" in episode_name:
+                episode_name = episode_name.replace("/", " ")
+
             new_episode_path = Path(
                 episode_path.parent,
-                f"""{episode_path.parent.name} S{str(tvshow_episode_details["season_number"]).zfill(2)}E{str(tvshow_episode_details["episode_number"]).zfill(2)} {tvshow_episode_details["name"]}{episode_path.suffix}""")
+                f"""{episode_path.parent.name} S{str(tvshow_episode_details["season_number"]).zfill(2)}E{str(tvshow_episode_details["episode_number"]).zfill(2)} {episode_name}{episode_path.suffix}""")
 
-            print(new_episode_path)
             tvshow_model.set_or_update_tvshow_episode(
                 tvshow_episode_details["id"],
                 tvshow_episode_details["name"],
@@ -64,7 +71,7 @@ def list_tvshow_episodes(tvshow_name):
                 tvshow.id
             )
 
-            # episode_path.rename(new_episode_path)
+            episode_path.rename(new_episode_path)
         except KeyError:
             print("error on ", tvshow_name, episode_path)
             pass
@@ -102,15 +109,16 @@ def get_tvshow_episode_details(tvshow_id, episode_path):
     season, ep_number = None, None
 
     try:
-        season, ep_number = re.search("S([0-9]{1,2})E([0-9]{1,2})", episode_path.name).groups()
+        ep_number, = re.search("([0-9]{1,2})", episode_path.name).groups()
+        season = "01"
     except AttributeError:
         pass
     try:
-        season, ep_number = re.search("s([0-9]{1,2})e([0-9]{1,2})", episode_path.name).groups()
+        season, ep_number = re.search("S([0-9]{1,2})E([0-9]{1,2})", episode_path.name, re.IGNORECASE).groups()
     except AttributeError:
         pass
     try:
-        season, ep_number = re.search("([0-9]{1,2})x([0-9]{1,2})", episode_path.name).groups()
+        season, ep_number = re.search("([0-9]{1,2})x([0-9]{1,2})", episode_path.name, re.IGNORECASE).groups()
     except AttributeError:
         pass
 
@@ -129,12 +137,13 @@ def create_dir(directory_path):
 
 
 if __name__ == "__main__":
-    # movies_list = list_movie()
-    # propose_choice(list(movies_list))
+    movies_list = list_movie()
+    propose_choice(list(movies_list))
 
     tvdb_list = list(list_tvshow(True))
+
     propose_choice_tv(tvdb_list)
 
-    # for _tvshow in tvdb_list:
-    #     list_tvshow_episodes(_tvshow[0])
+    for _tvshow in tvdb_list:
+        list_tvshow_episodes(_tvshow[0])
 

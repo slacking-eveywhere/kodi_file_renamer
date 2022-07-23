@@ -23,9 +23,13 @@ class TVShowEpisodesList:
         self.tvshow_path = tvshow_path
 
     def __iter__(self):
-        for episode in sorted(os.listdir(self.tvshow_path)):
-            episode_path = Path(os.path.join(self.tvshow_path, episode))
-            if episode_path.name.startswith("."):
-                continue
+        try:
+            for episode in sorted(os.listdir(self.tvshow_path)):
+                episode_path = Path(os.path.join(self.tvshow_path, episode))
+                if episode_path.name.startswith("."):
+                    continue
 
-            yield episode_path
+                yield episode_path
+        except FileNotFoundError:
+            pass
+

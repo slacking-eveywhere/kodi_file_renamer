@@ -5,7 +5,7 @@ import sys
 import os
 from moviepy.editor import VideoFileClip
 
-MOVIE_FILE_TYPES = [".mkv", ".avi", ".mp4", ".iso", ".m2ts", ".img"]
+MOVIE_FILE_TYPES = [".mkv", ".avi", ".mp4", ".iso", ".m2ts", ".img", ".ts"]
 
 
 class MovieList:

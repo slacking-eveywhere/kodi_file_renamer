@@ -21,7 +21,13 @@ class TVDB:
     def search_movies(self, query):
         url = path.join(TVDB_URL, 'search', 'movie')
         formatted_query = query.replace(" ", "+")
-        params = {"query": formatted_query}
+        if re.search("\(([0-9]*?)\)", query):
+            params = {
+                "query": query[:-6],
+                "year": query[-5:-1]
+            }
+        else:
+            params = {"query": formatted_query}
         params.update(self.parameters)
         req = requests.get(url, params=params)
 
@@ -47,7 +53,6 @@ class TVDB:
         else:
             params = {"query": query}
         params.update(self.parameters)
-        print(params)
         req = requests.get(url, params=params)
 
         return TVShowPropositionsList(query, [
