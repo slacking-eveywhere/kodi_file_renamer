@@ -11,9 +11,9 @@ from list_tvshow import TVShowList, TVShowEpisodesList
 from database import TVShowsModel
 
 DB_NAME = "database.sql"
-MOVIE_PATH = "/Volumes/medias/divers/rsync/to sort"
-MOVIE_PATH_SORTED = "/Volumes/medias/divers/rsync/sorted"
-TVSHOW_PATH = "/Volumes/medias/divers/rsync/series"
+MOVIE_PATH = "/data_dir/to sort"
+MOVIE_PATH_SORTED = "/data_dir/sorted"
+TVSHOW_PATH = "/data_dir/series"
 
 UNICODE_NORMALIZE_FORM_VALUE = "NFKC"
 
