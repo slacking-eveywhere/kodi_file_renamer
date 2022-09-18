@@ -3,17 +3,19 @@
 
 import os
 from pathlib import Path
+
 import re
 import unicodedata2
 from tvdb import TVDB
 from list_movie import MovieList
 from list_tvshow import TVShowList, TVShowEpisodesList
 from database import TVShowsModel
+from exceptions import EpisodePathAlreadyUsedError
 
 DB_NAME = "database.sql"
-MOVIE_PATH = "/data_dir/to sort"
-MOVIE_PATH_SORTED = "/data_dir/sorted"
-TVSHOW_PATH = "/data_dir/series"
+MOVIE_PATH = "/data-dir/to sort"
+MOVIE_PATH_SORTED = "/data-dir/sorted"
+TVSHOW_PATH = "/data-dir/series"
 
 UNICODE_NORMALIZE_FORM_VALUE = "NFKC"
 
@@ -49,6 +51,8 @@ def list_tvshow_episodes(tvshow_name):
     tvshow_model = TVShowsModel(DB_NAME)
     tvshow = tvshow_model.get_tvshow_by_name(tvshow_name)
 
+    new_episode_path_history = set()
+
     for episode_path in TVShowEpisodesList(tvshow.path):
         tvshow_episode_details = get_tvshow_episode_details(tvshow.id, episode_path)
 
@@ -71,9 +75,17 @@ def list_tvshow_episodes(tvshow_name):
                 tvshow.id
             )
 
+            if new_episode_path in new_episode_path_history:
+                raise EpisodePathAlreadyUsedError
+
             episode_path.rename(new_episode_path)
-        except KeyError:
-            print("error on ", tvshow_name, episode_path)
+            new_episode_path_history.add(new_episode_path)
+
+        except KeyError as e:
+            print("error on key", tvshow_name, episode_path, e)
+            pass
+        except EpisodePathAlreadyUsedError:
+            print("error on episode name already used", tvshow_name, episode_path, new_episode_path)
             pass
 
 
@@ -109,7 +121,7 @@ def get_tvshow_episode_details(tvshow_id, episode_path):
     season, ep_number = None, None
 
     try:
-        ep_number, = re.search("([0-9]{1,2})", episode_path.name).groups()
+        ep_number, = re.search("EP([0-9]{1,2})", episode_path.name).groups()
         season = "01"
     except AttributeError:
         pass
@@ -119,6 +131,10 @@ def get_tvshow_episode_details(tvshow_id, episode_path):
         pass
     try:
         season, ep_number = re.search("([0-9]{1,2})x([0-9]{1,2})", episode_path.name, re.IGNORECASE).groups()
+    except AttributeError:
+        pass
+    try:
+        season, ep_number = re.search("([0-9]{1,2}) - ([0-9]{1,2})", episode_path.name, re.IGNORECASE).groups()
     except AttributeError:
         pass
 

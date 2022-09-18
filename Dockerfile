@@ -1,5 +1,8 @@
-FROM python:3.9-slim
+FROM python:3.9-slim as dev
 
+WORKDIR /app
+
+COPY . .
 COPY requirements.txt requirements.txt
 
 RUN apt-get update ; \
@@ -9,3 +12,8 @@ RUN apt-get update ; \
         ffmpeg
 
 RUN python -m pip install -r requirements.txt
+
+
+FROM dev as exec
+
+CMD python tvdb_api.py
