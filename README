@@ -1,0 +1,200 @@
+KODI RENAMER - GO VERSION
+=========================
+
+A command-line tool to rename movie and TV series files for Kodi media center
+using TheTVDB and/or TheMovieDB APIs.
+
+FEATURES
+--------
+- Supports TVDB and TMDB APIs (use one or both)
+- Automatically detects movies and TV series from filenames
+- Parses season/episode information (S01E01, 1x01 formats)
+- Extracts year information from movie filenames
+- Searches both APIs and merges results
+- Interactive selection of correct match
+- Dry-run mode to preview changes
+- Auto mode for batch processing
+
+API CONFIGURATION
+-----------------
+You can use TVDB, TMDB, or BOTH APIs:
+
+1. BOTH APIs (recommended - best results):
+   export TVDB_API_KEY='your-tvdb-key'
+   export TMDB_API_KEY='your-tmdb-key'
+   ./kodi-renamer -dir /path/to/media
+
+2. TVDB only:
+   export TVDB_API_KEY='your-tvdb-key'
+   ./kodi-renamer -dir /path/to/media
+
+3. TMDB only:
+   export TMDB_API_KEY='your-tmdb-key'
+   ./kodi-renamer -dir /path/to/media
+
+4. Via command line flags:
+   ./kodi-renamer -tvdb-key 'key1' -tmdb-key 'key2' -dir /path/to/media
+
+GET API KEYS
+------------
+TVDB: https://thetvdb.com/api-information
+TMDB: https://www.themoviedb.org/settings/api
+
+INSTALLATION
+------------
+1. Ensure Go 1.20+ is installed
+2. Build the application:
+
+   go build -o kodi-renamer ./cmd/kodi-renamer
+
+USAGE
+-----
+Basic usage (interactive mode):
+  ./kodi-renamer -dir /path/to/media
+
+Dry run (preview without renaming):
+  ./kodi-renamer -dir /path/to/media -dry-run
+
+Auto mode (select first match automatically):
+  ./kodi-renamer -dir /path/to/media -auto
+
+Combine flags:
+  ./kodi-renamer -dir /path/to/media -dry-run -auto
+
+COMMAND LINE OPTIONS
+--------------------
+  -tvdb-key string
+        TVDB API Key (or set TVDB_API_KEY env var)
+
+  -tmdb-key string
+        TMDB API Key (or set TMDB_API_KEY env var)
+
+  -dir string
+        Directory to scan for media files (default: current directory)
+
+  -dry-run
+        Preview mode - show what would be renamed without making changes
+
+  -auto
+        Automatic mode - select first search result without prompting
+
+NOTE: At least one API key (TVDB or TMDB) must be provided
+
+EXAMPLES
+--------
+1. Use both APIs for best results:
+   export TVDB_API_KEY='your-tvdb-key'
+   export TMDB_API_KEY='your-tmdb-key'
+   ./kodi-renamer
+
+2. Preview changes with TMDB only:
+   ./kodi-renamer -tmdb-key 'your-key' -dir ~/Downloads -dry-run
+
+3. Batch rename with both APIs:
+   ./kodi-renamer -tvdb-key 'key1' -tmdb-key 'key2' -dir /media/unsorted -auto
+
+SUPPORTED FILE FORMATS
+----------------------
+Movies:
+  - The.Matrix.1999.1080p.mkv
+  - Inception (2010) 720p.mp4
+  - Pulp.Fiction.[1994].BluRay.avi
+
+TV Series:
+  - Breaking.Bad.S01E01.720p.mkv
+  - Game.of.Thrones.3x09.HDTV.avi
+  - Friends.1x05.The.One.with.the.Laundry.mkv
+
+Supported extensions:
+  .mkv, .mp4, .avi, .mov, .wmv, .flv, .webm, .m4v
+
+OUTPUT FORMAT
+-------------
+Movies:
+  Title (Year).ext
+  Example: The Matrix (1999).mkv
+
+TV Series:
+  Series Name S##E## - Episode Name.ext
+  Example: Breaking Bad S01E01 - Pilot.mkv
+
+API BEHAVIOR
+------------
+When both APIs are configured:
+  - Both APIs are searched in parallel
+  - Results are merged and sorted
+  - TVDB results appear first, then TMDB (sorted by popularity)
+  - User sees source indicator: [tvdb] or [tmdb]
+  - Selected source is used for detailed metadata
+
+When only one API is configured:
+  - Only that API is used
+  - No merging necessary
+  - Faster operation
+
+TESTING
+-------
+Test the scanner without API:
+  go build -o test-scanner ./cmd/test-scanner
+  ./test-scanner -dir /path/to/media
+
+Run test suite:
+  ./test_scanner.sh
+
+PROJECT STRUCTURE
+-----------------
+kodi-renamer-go/
+  cmd/
+    kodi-renamer/       Main application
+    test-scanner/       Scanner testing utility
+  internal/
+    api/                Unified API manager
+    scanner/            File scanning and parsing
+    tvdb/               TVDB API client
+    tmdb/               TMDB API client
+    renamer/            File renaming logic
+    ui/                 Interactive user interface
+  go.mod                Go module definition
+  go.sum                Dependency checksums
+
+WORKFLOW
+--------
+1. Scans directory for video files
+2. Parses filenames to detect movies vs TV series
+3. Searches configured APIs (TVDB and/or TMDB)
+4. Merges results if both APIs configured
+5. Presents matches to user (or auto-selects in auto mode)
+6. Retrieves detailed metadata from selected source
+7. Renames files according to Kodi conventions
+
+NOTES
+-----
+- Always use -dry-run first to verify results
+- The tool preserves original file extensions
+- Files are renamed in place (same directory)
+- Special characters in titles are sanitized
+- Duplicate names are prevented
+- Using both APIs provides more results
+- TMDB results are sorted by popularity
+
+ERROR HANDLING
+--------------
+- No API keys: Clear error message with instructions
+- Invalid API key: Authentication error with source indicated
+- No results found: File will be skipped
+- API rate limits: Tool will report errors, retry manually
+- File conflicts: Renaming is skipped if target file exists
+- One API fails: Other API results still shown (if configured)
+
+MIGRATION FROM PYTHON VERSION
+------------------------------
+- No database functionality (pure API operation)
+- Added TMDB support alongside TVDB
+- Improved performance (compiled binary)
+- Better error handling
+- Unified API management
+
+LICENSE
+-------
+Rewrite of the original Python version in Go.
+Added multi-API support and modern architecture.

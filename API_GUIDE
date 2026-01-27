@@ -1,0 +1,262 @@
+API CONFIGURATION GUIDE
+=======================
+
+This guide explains how the Kodi Renamer handles TVDB and TMDB API keys.
+
+SUPPORTED CONFIGURATIONS
+------------------------
+
+1. BOTH APIs (RECOMMENDED)
+   - Best coverage and results
+   - Results are merged from both sources
+   - TVDB results shown first, then TMDB (sorted by popularity)
+
+   Setup:
+   export TVDB_API_KEY='your-tvdb-key'
+   export TMDB_API_KEY='your-tmdb-key'
+   ./kodi-renamer -dir /media
+
+2. TVDB ONLY
+   - Uses TheTVDB database
+   - Good for TV series
+   - Requires authentication
+
+   Setup:
+   export TVDB_API_KEY='your-tvdb-key'
+   ./kodi-renamer -dir /media
+
+   Or:
+   ./kodi-renamer -tvdb-key 'your-key' -dir /media
+
+3. TMDB ONLY
+   - Uses TheMovieDB database
+   - Excellent for movies
+   - Great for TV series too
+   - No authentication required (key verification only)
+
+   Setup:
+   export TMDB_API_KEY='your-tmdb-key'
+   ./kodi-renamer -dir /media
+
+   Or:
+   ./kodi-renamer -tmdb-key 'your-key' -dir /media
+
+4. NO APIs
+   - Application will not start
+   - Clear error message displayed
+   - Instructions provided for setting keys
+
+HOW IT WORKS
+------------
+
+Startup Flow:
+1. Check for -tvdb-key flag
+2. If not found, check TVDB_API_KEY environment variable
+3. Check for -tmdb-key flag
+4. If not found, check TMDB_API_KEY environment variable
+5. If no keys found: EXIT with error and instructions
+6. If TVDB key found: Authenticate with TVDB API
+7. If TMDB key found: Configure TMDB client
+8. Continue with at least one API configured
+
+Search Flow (Both APIs):
+1. Query sent to all configured APIs
+2. Results collected from each source
+3. Results merged and tagged with source ([tvdb] or [tmdb])
+4. Sorted: TVDB first, then TMDB by popularity
+5. User sees unified list with source indicators
+6. User selects result
+7. Detailed metadata fetched from selected source
+
+Search Flow (Single API):
+1. Query sent to configured API
+2. Results returned directly
+3. User selects result
+4. Detailed metadata fetched
+
+Error Handling:
+- If one API fails: Other results still shown (if available)
+- If both fail: Error message, file skipped
+- Invalid key: Authentication error with API name
+- No keys: Startup prevented with instructions
+
+GETTING API KEYS
+----------------
+
+TVDB (TheTVDB):
+1. Visit: https://thetvdb.com/api-information
+2. Create free account
+3. Generate API key
+4. Copy key for use
+
+TMDB (TheMovieDB):
+1. Visit: https://www.themoviedb.org/settings/api
+2. Create free account
+3. Request API key
+4. Get API Key (v3 auth)
+5. Copy key for use
+
+COMMAND LINE PRECEDENCE
+-----------------------
+
+Priority order (highest to lowest):
+1. -tvdb-key flag
+2. TVDB_API_KEY environment variable
+3. -tmdb-key flag
+4. TMDB_API_KEY environment variable
+
+Examples:
+# Flag overrides environment
+export TVDB_API_KEY='old-key'
+./kodi-renamer -tvdb-key 'new-key' -dir /media
+# Uses: new-key
+
+# Mix environment and flags
+export TVDB_API_KEY='tvdb-key'
+./kodi-renamer -tmdb-key 'tmdb-key' -dir /media
+# Uses: both keys
+
+# Environment only
+export TVDB_API_KEY='tvdb-key'
+export TMDB_API_KEY='tmdb-key'
+./kodi-renamer -dir /media
+# Uses: both keys
+
+RESULT MERGING
+--------------
+
+When both APIs configured:
+
+Search results show:
+[tvdb] Show Name (2020)
+[tvdb] Show Name 2 (2021)
+[tmdb] Show Name (2020)
+[tmdb] Show Name 3 (2022)
+
+User sees source and can choose preferred result.
+Selected source is used for all subsequent metadata.
+
+Benefits:
+- More comprehensive results
+- Better match likelihood
+- User can choose preferred database
+- Fallback if one API down
+
+TESTING WITHOUT REAL KEYS
+--------------------------
+
+Scanner test (no API needed):
+./test-scanner -dir /path/to/media
+
+This shows:
+- File detection works
+- Pattern parsing works
+- Season/episode extraction works
+- Movie year extraction works
+
+No API calls made, so no keys required.
+
+TROUBLESHOOTING
+---------------
+
+Error: "At least one API key is required"
+Solution: Set TVDB_API_KEY or TMDB_API_KEY
+  export TVDB_API_KEY='your-key'
+  OR
+  export TMDB_API_KEY='your-key'
+
+Error: "failed to authenticate with TVDB"
+Solution:
+  - Check key is valid at thetvdb.com
+  - Verify key copied correctly (no spaces)
+  - Try regenerating key
+
+Error: "Invalid API key" (TMDB)
+Solution:
+  - Check key is valid at themoviedb.org
+  - Use API Key (v3 auth), not v4 token
+  - Verify key copied correctly
+
+Warning: "TVDB search warning: ..."
+Info: TMDB is still working, results shown
+Action: Optional - fix TVDB key for more results
+
+Warning: "TMDB search warning: ..."
+Info: TVDB is still working, results shown
+Action: Optional - fix TMDB key for more results
+
+Both APIs fail:
+Result: "No results found" - file skipped
+Action: Check both API keys
+
+BEST PRACTICES
+--------------
+
+1. Use both APIs for maximum coverage
+2. Store keys in environment variables
+3. Add to ~/.bashrc or ~/.zshrc:
+   export TVDB_API_KEY='your-tvdb-key'
+   export TMDB_API_KEY='your-tmdb-key'
+4. Always test with -dry-run first
+5. Keep API keys secure (don't commit to git)
+
+SECURITY
+--------
+
+- Never hardcode API keys in scripts
+- Use environment variables
+- Don't commit keys to version control
+- Regenerate keys if compromised
+- Keys transmitted over HTTPS only
+
+API RATE LIMITS
+---------------
+
+TVDB:
+- Authenticated requests
+- Rate limits apply
+- Tool will show errors if exceeded
+
+TMDB:
+- 40 requests per 10 seconds
+- Tool doesn't implement rate limiting
+- If errors occur, wait and retry
+
+For batch processing:
+- Use -auto mode
+- Monitor for rate limit errors
+- Add delays between batches if needed
+
+EXAMPLES
+--------
+
+Basic usage (both APIs):
+export TVDB_API_KEY='abc123'
+export TMDB_API_KEY='xyz789'
+./kodi-renamer -dir ~/Downloads -dry-run
+
+Override with flags:
+./kodi-renamer -tvdb-key 'abc' -tmdb-key 'xyz' -dir ~/Downloads
+
+Test with TMDB only:
+unset TVDB_API_KEY
+export TMDB_API_KEY='xyz789'
+./kodi-renamer -dir ~/Downloads -dry-run
+
+Batch with both:
+export TVDB_API_KEY='abc123'
+export TMDB_API_KEY='xyz789'
+./kodi-renamer -dir /media/unsorted -auto
+
+SUMMARY
+-------
+
+✓ Flexible: Use one or both APIs
+✓ Clear errors: Helpful messages if misconfigured
+✓ Merged results: Best of both databases
+✓ Fallback: One API can fail, other still works
+✓ Source tracking: Always know which API provided data
+✓ User choice: Select preferred source from results
+
+At least one API key MUST be configured for operation.
+Both APIs provide best results and coverage.

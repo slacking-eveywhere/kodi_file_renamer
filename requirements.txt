@@ -1,4 +1,0 @@
-requests
-unicodedata2
-moviepy
-PyInquirer

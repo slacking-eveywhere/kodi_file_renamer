@@ -1,0 +1,171 @@
+QUICK START GUIDE
+=================
+
+1. BUILD
+--------
+cd /workdir/kodi-renamer-go
+export PATH=$PATH:~/go/bin
+go build -o kodi-renamer ./cmd/kodi-renamer
+
+2. GET API KEYS
+---------------
+You need at least ONE of these:
+
+TVDB API Key:
+  Visit: https://thetvdb.com/api-information
+  Sign up and get your API key
+
+TMDB API Key:
+  Visit: https://www.themoviedb.org/settings/api
+  Sign up and get your API key
+
+RECOMMENDATION: Get both for best results!
+
+3. SET API KEYS
+---------------
+Option A: Both APIs (recommended)
+  export TVDB_API_KEY='your-tvdb-key-here'
+  export TMDB_API_KEY='your-tmdb-key-here'
+
+Option B: TVDB only
+  export TVDB_API_KEY='your-tvdb-key-here'
+
+Option C: TMDB only
+  export TMDB_API_KEY='your-tmdb-key-here'
+
+Option D: Via command line flags
+  ./kodi-renamer -tvdb-key 'key1' -tmdb-key 'key2' -dir /path
+
+4. TEST SCANNER (No API needed)
+-------------------------------
+# Build test utility
+go build -o test-scanner ./cmd/test-scanner
+
+# Create test files
+mkdir test_files
+cd test_files
+touch "Breaking.Bad.S01E01.720p.mkv"
+touch "The.Matrix.1999.1080p.mp4"
+touch "Game.of.Thrones.S03E09.avi"
+cd ..
+
+# Run scanner test
+./test-scanner -dir test_files
+
+5. DRY RUN TEST (Requires at least one API key)
+------------------------------------------------
+# Test with both APIs
+export TVDB_API_KEY='your-key'
+export TMDB_API_KEY='your-key'
+./kodi-renamer -dir test_files -dry-run
+
+# Test with TVDB only
+export TVDB_API_KEY='your-key'
+unset TMDB_API_KEY
+./kodi-renamer -dir test_files -dry-run
+
+# Test with TMDB only
+unset TVDB_API_KEY
+export TMDB_API_KEY='your-key'
+./kodi-renamer -dir test_files -dry-run
+
+6. INTERACTIVE MODE (Requires at least one API key)
+----------------------------------------------------
+./kodi-renamer -dir test_files
+
+7. AUTO MODE (Requires at least one API key)
+---------------------------------------------
+./kodi-renamer -dir test_files -auto -dry-run
+
+8. REAL USAGE
+-------------
+# Always test first!
+./kodi-renamer -dir /path/to/your/media -dry-run
+
+# If satisfied, run for real
+./kodi-renamer -dir /path/to/your/media
+
+COMMON PATTERNS
+---------------
+Movies detected from:
+  - Movie.Name.1999.1080p.mkv
+  - Movie.Name.(2010).mp4
+  - Movie.Name.[2015].avi
+
+TV Series detected from:
+  - Show.Name.S01E01.mkv
+  - Show.Name.1x05.mp4
+  - Show.Name.Season.1.Episode.3.avi
+
+API BEHAVIOR
+------------
+Both APIs configured:
+  - Searches both TVDB and TMDB
+  - Results merged and displayed with [tvdb] or [tmdb] prefix
+  - TVDB results shown first
+  - More comprehensive results
+
+One API configured:
+  - Uses only that API
+  - Faster operation
+  - Still works great
+
+No APIs configured:
+  - Clear error message
+  - Instructions to set at least one
+
+TIPS
+----
+- Use -dry-run first ALWAYS
+- Use -auto for batch processing
+- Scanner works without API key for testing
+- Files renamed in same directory
+- Original extensions preserved
+- Conflicts prevented automatically
+- Both APIs = best coverage
+- TMDB results sorted by popularity
+
+TROUBLESHOOTING
+---------------
+Q: "At least one API key is required"
+A: Set TVDB_API_KEY or TMDB_API_KEY (or both)
+   export TVDB_API_KEY='your-key'
+   export TMDB_API_KEY='your-key'
+
+Q: "failed to authenticate with TVDB"
+A: Check your TVDB API key is valid at thetvdb.com
+
+Q: "failed to authenticate with TMDB" or 401 error
+A: Check your TMDB API key is valid at themoviedb.org
+
+Q: "No results found"
+A: Try with both APIs for better coverage
+   File will be skipped, try renaming manually first
+
+Q: Scanner not detecting properly
+A: Run test-scanner to see how files are parsed
+   ./test-scanner -dir /path/to/files
+
+Q: Go not found
+A: Add Go to PATH: export PATH=$PATH:~/go/bin
+
+Q: Want better results?
+A: Use both APIs! More sources = better matches
+
+EXAMPLES
+--------
+# Best setup (both APIs)
+export TVDB_API_KEY='abc123'
+export TMDB_API_KEY='xyz789'
+./kodi-renamer -dir ~/Downloads -dry-run
+
+# Quick test with one API
+./kodi-renamer -tmdb-key 'xyz789' -dir ~/Downloads -dry-run
+
+# Batch processing with both
+export TVDB_API_KEY='abc123'
+export TMDB_API_KEY='xyz789'
+./kodi-renamer -dir /media/unsorted -auto
+
+# Interactive with TVDB only
+./kodi-renamer -tvdb-key 'abc123' -dir ~/Movies
