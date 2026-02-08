@@ -1,5 +1,6 @@
 package tmdb
 
+// SearchResponse represents the response from a TMDb search API call
 type SearchResponse struct {
 	Page         int            `json:"page"`
 	Results      []SearchResult `json:"results"`
@@ -7,44 +8,47 @@ type SearchResponse struct {
 	TotalResults int            `json:"total_results"`
 }
 
+// SearchResult represents a single search result item from TMDb
 type SearchResult struct {
-	ID           int      `json:"id"`
-	MediaType    string   `json:"media_type"`
-	Title        string   `json:"title"`
-	Name         string   `json:"name"`
+	ID            int     `json:"id"`
+	MediaType     string  `json:"media_type"`
+	Title         string  `json:"title"`
+	Name          string  `json:"name"`
 	OriginalTitle string  `json:"original_title"`
-	OriginalName string   `json:"original_name"`
-	Overview     string   `json:"overview"`
-	ReleaseDate  string   `json:"release_date"`
-	FirstAirDate string   `json:"first_air_date"`
-	PosterPath   string   `json:"poster_path"`
-	BackdropPath string   `json:"backdrop_path"`
-	Popularity   float64  `json:"popularity"`
-	VoteAverage  float64  `json:"vote_average"`
-	GenreIDs     []int    `json:"genre_ids"`
+	OriginalName  string  `json:"original_name"`
+	Overview      string  `json:"overview"`
+	ReleaseDate   string  `json:"release_date"`
+	FirstAirDate  string  `json:"first_air_date"`
+	PosterPath    string  `json:"poster_path"`
+	BackdropPath  string  `json:"backdrop_path"`
+	Popularity    float64 `json:"popularity"`
+	VoteAverage   float64 `json:"vote_average"`
+	GenreIDs      []int   `json:"genre_ids"`
 }
 
+// MovieDetails contains comprehensive information about a movie from TMDb
 type MovieDetails struct {
-	ID               int             `json:"id"`
-	Title            string          `json:"title"`
-	OriginalTitle    string          `json:"original_title"`
-	Overview         string          `json:"overview"`
-	ReleaseDate      string          `json:"release_date"`
-	Runtime          int             `json:"runtime"`
-	Status           string          `json:"status"`
-	Tagline          string          `json:"tagline"`
-	Genres           []Genre         `json:"genres"`
-	PosterPath       string          `json:"poster_path"`
-	BackdropPath     string          `json:"backdrop_path"`
-	Budget           int64           `json:"budget"`
-	Revenue          int64           `json:"revenue"`
-	Popularity       float64         `json:"popularity"`
-	VoteAverage      float64         `json:"vote_average"`
-	VoteCount        int             `json:"vote_count"`
-	ImdbID           string          `json:"imdb_id"`
-	OriginalLanguage string          `json:"original_language"`
+	ID               int     `json:"id"`
+	Title            string  `json:"title"`
+	OriginalTitle    string  `json:"original_title"`
+	Overview         string  `json:"overview"`
+	ReleaseDate      string  `json:"release_date"`
+	Runtime          int     `json:"runtime"`
+	Status           string  `json:"status"`
+	Tagline          string  `json:"tagline"`
+	Genres           []Genre `json:"genres"`
+	PosterPath       string  `json:"poster_path"`
+	BackdropPath     string  `json:"backdrop_path"`
+	Budget           int64   `json:"budget"`
+	Revenue          int64   `json:"revenue"`
+	Popularity       float64 `json:"popularity"`
+	VoteAverage      float64 `json:"vote_average"`
+	VoteCount        int     `json:"vote_count"`
+	ImdbID           string  `json:"imdb_id"`
+	OriginalLanguage string  `json:"original_language"`
 }
 
+// TVShowDetails contains comprehensive information about a TV show from TMDb
 type TVShowDetails struct {
 	ID               int      `json:"id"`
 	Name             string   `json:"name"`
@@ -65,6 +69,7 @@ type TVShowDetails struct {
 	Seasons          []Season `json:"seasons"`
 }
 
+// Season represents a TV show season with basic metadata
 type Season struct {
 	ID           int    `json:"id"`
 	AirDate      string `json:"air_date"`
@@ -75,6 +80,7 @@ type Season struct {
 	SeasonNumber int    `json:"season_number"`
 }
 
+// SeasonDetails contains detailed information about a specific season including episodes
 type SeasonDetails struct {
 	ID           int       `json:"id"`
 	AirDate      string    `json:"air_date"`
@@ -85,24 +91,27 @@ type SeasonDetails struct {
 	Episodes     []Episode `json:"episodes"`
 }
 
+// Episode represents a single episode of a TV show
 type Episode struct {
-	ID             int     `json:"id"`
-	Name           string  `json:"name"`
-	Overview       string  `json:"overview"`
-	AirDate        string  `json:"air_date"`
-	EpisodeNumber  int     `json:"episode_number"`
-	SeasonNumber   int     `json:"season_number"`
-	StillPath      string  `json:"still_path"`
-	VoteAverage    float64 `json:"vote_average"`
-	VoteCount      int     `json:"vote_count"`
-	Runtime        int     `json:"runtime"`
+	ID            int     `json:"id"`
+	Name          string  `json:"name"`
+	Overview      string  `json:"overview"`
+	AirDate       string  `json:"air_date"`
+	EpisodeNumber int     `json:"episode_number"`
+	SeasonNumber  int     `json:"season_number"`
+	StillPath     string  `json:"still_path"`
+	VoteAverage   float64 `json:"vote_average"`
+	VoteCount     int     `json:"vote_count"`
+	Runtime       int     `json:"runtime"`
 }
 
+// Genre represents a content genre with ID and name
 type Genre struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
 }
 
+// Proposition represents a simplified search result for user selection
 type Proposition struct {
 	ID           int
 	Title        string
@@ -115,6 +124,7 @@ type Proposition struct {
 	VoteAverage  float64
 }
 
+// MovieProposition represents detailed movie information for user display
 type MovieProposition struct {
 	ID       int
 	Title    string
@@ -125,6 +135,7 @@ type MovieProposition struct {
 	Source   string
 }
 
+// SeriesProposition represents detailed TV series information for user display
 type SeriesProposition struct {
 	ID         int
 	Name       string
@@ -136,6 +147,7 @@ type SeriesProposition struct {
 	Source     string
 }
 
+// EpisodeInfo contains specific episode details for renaming purposes
 type EpisodeInfo struct {
 	SeriesName    string
 	SeasonNumber  int

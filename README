@@ -4,6 +4,9 @@ KODI RENAMER - GO VERSION
 A command-line tool to rename movie and TV series files for Kodi media center
 using TheTVDB and/or TheMovieDB APIs.
 
+⚠️  IMPORTANT: Version 2.x introduces a new 4-directory structure!
+See MIGRATION_GUIDE.md if upgrading from v1.x
+
 FEATURES
 --------
 - Supports TVDB and TMDB APIs (use one or both)
@@ -14,26 +17,50 @@ FEATURES
 - Interactive selection of correct match
 - Dry-run mode to preview changes
 - Auto mode for batch processing
+- 4 separate directories for organized workflow:
+  * Movie input/output directories
+  * Series input/output directories
+- Optional in-place renaming or move to separate output directories
+
+DIRECTORY CONFIGURATION (NEW in v2.x)
+--------------------------------------
+Configure 4 separate directories for better organization:
+
+1. MOVIE_TO_RENAME_DIR - Input directory for movies to rename
+2. MOVIE_RENAMED_DIR - Output directory for renamed movies (optional)
+3. SERIE_TO_RENAME_DIR - Input directory for series to rename
+4. SERIE_RENAMED_DIR - Output directory for renamed series (optional)
+
+See CONFIGURATION.md for detailed setup instructions.
+
+QUICK START
+-----------
+1. Set API keys:
+   export TVDB_API_KEY='your-tvdb-key'
+   export TMDB_API_KEY='your-tmdb-key'
+
+2. Set directories:
+   export MOVIE_TO_RENAME_DIR='/path/to/movies'
+   export SERIE_TO_RENAME_DIR='/path/to/series'
+
+3. Run:
+   ./kodi-renamer -dry-run  # Preview changes
+   ./kodi-renamer           # Actually rename
+
+Or use Makefile targets:
+   make run-movies MOVIE_TO_RENAME_DIR=/path/to/movies
+   make run-series SERIE_TO_RENAME_DIR=/path/to/series
 
 API CONFIGURATION
 -----------------
-You can use TVDB, TMDB, or BOTH APIs:
+You can use TVDB, TMDB, or BOTH APIs (recommended for best results):
 
-1. BOTH APIs (recommended - best results):
+Via environment variables:
    export TVDB_API_KEY='your-tvdb-key'
    export TMDB_API_KEY='your-tmdb-key'
-   ./kodi-renamer -dir /path/to/media
 
-2. TVDB only:
-   export TVDB_API_KEY='your-tvdb-key'
-   ./kodi-renamer -dir /path/to/media
-
-3. TMDB only:
-   export TMDB_API_KEY='your-tmdb-key'
-   ./kodi-renamer -dir /path/to/media
-
-4. Via command line flags:
-   ./kodi-renamer -tvdb-key 'key1' -tmdb-key 'key2' -dir /path/to/media
+Via command line flags:
+   ./kodi-renamer -tvdb-key 'key1' -tmdb-key 'key2'
 
 GET API KEYS
 ------------
@@ -42,10 +69,90 @@ TMDB: https://www.themoviedb.org/settings/api
 
 INSTALLATION
 ------------
+
+METHOD 1: Docker (Recommended for Easy Setup)
+----------------------------------------------
+1. Ensure Docker is installed
+2. Build the Docker image:
+
+   make docker-build
+
+3. Run with Docker:
+
+   export TVDB_API_KEY='your-tvdb-key'
+   export TMDB_API_KEY='your-tmdb-key'
+   make docker-run
+
+For detailed Docker usage, see DOCKER.md
+
+METHOD 2: Native Binary Build
+------------------------------
 1. Ensure Go 1.20+ is installed
 2. Build the application:
 
+   Option 1 - Using Makefile (recommended):
+   make build
+
+   Option 2 - Using go build directly:
    go build -o kodi-renamer ./cmd/kodi-renamer
+
+MAKEFILE TARGETS
+----------------
+The project includes a Makefile for convenient building and running:
+
+  make             - Build and run the application (default)
+  make build       - Build the application binary
+  make run         - Run the application
+  make clean       - Remove build artifacts
+  make test        - Run tests
+  make fmt         - Format source code
+  make deps        - Download and tidy dependencies
+  make install     - Install binary to GOPATH/bin
+  make build-all   - Build for multiple platforms (Linux, macOS, Windows)
+  make dry-run     - Build and run in dry-run mode
+  make auto        - Build and run in automatic mode
+  make help        - Show available targets
+
+Docker targets:
+  make docker-build   - Build Docker image with distroless
+  make docker-run     - Run Docker container
+  make docker-dry-run - Run Docker in dry-run mode
+  make docker-clean   - Remove Docker image
+  make docker         - Build and run Docker in one command
+
+Quick start with Makefile:
+  # Set your API keys
+  export TVDB_API_KEY='your-tvdb-key'
+  export TMDB_API_KEY='your-tmdb-key'
+
+  # Build and run
+  make
+
+  # Or preview changes first
+  make dry-run
+
+DOCKER USAGE
+------------
+Using Docker (no Go installation required):
+
+  # Build image
+  make docker-build
+
+  # Run interactively
+  make docker-run
+
+  # Preview mode
+  make docker-dry-run
+
+  # Custom directory
+  make docker-run-dir DIR=/path/to/media
+
+Or with docker-compose:
+  cp env.example .env
+  # Edit .env with your API keys
+  docker-compose run --rm kodi-renamer
+
+See DOCKER.md for comprehensive Docker documentation.
 
 USAGE
 -----
@@ -154,8 +261,15 @@ kodi-renamer-go/
     tmdb/               TMDB API client
     renamer/            File renaming logic
     ui/                 Interactive user interface
+  Dockerfile            Multi-stage Docker build
+  docker-compose.yml    Docker Compose configuration
+  .dockerignore         Docker build exclusions
+  Makefile              Build automation
   go.mod                Go module definition
   go.sum                Dependency checksums
+  DOCKER.md             Docker documentation
+  BUILD.md              Build documentation
+  QUICKSTART.md         Quick start guide
 
 WORKFLOW
 --------

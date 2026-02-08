@@ -5,21 +5,24 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"time"
-	"log"
 )
 
 const (
+	// BaseURL is the base URL for TheTVDB API v4
 	BaseURL = "https://api4.thetvdb.com/v4"
 )
 
+// Client represents a TheTVDB API client
 type Client struct {
 	apiKey     string
 	token      string
 	httpClient *http.Client
 }
 
+// NewClient creates a new TheTVDB API client with the provided API key
 func NewClient(apiKey string) *Client {
 	return &Client{
 		apiKey: apiKey,
@@ -29,6 +32,7 @@ func NewClient(apiKey string) *Client {
 	}
 }
 
+// Login authenticates with TheTVDB API and stores the authentication token
 func (c *Client) Login() error {
 	loginData := map[string]string{
 		"apikey": c.apiKey,
@@ -67,6 +71,7 @@ func (c *Client) Login() error {
 	return nil
 }
 
+// Search performs a general search on TheTVDB for the given query
 func (c *Client) Search(query string) ([]Proposition, error) {
 	if c.token == "" {
 		return nil, fmt.Errorf("not authenticated, call Login() first")
@@ -113,6 +118,7 @@ func (c *Client) Search(query string) ([]Proposition, error) {
 	return propositions, nil
 }
 
+// GetSeries retrieves detailed information about a TV series by ID
 func (c *Client) GetSeries(seriesID string) (*SeriesProposition, error) {
 	if c.token == "" {
 		return nil, fmt.Errorf("not authenticated, call Login() first")
@@ -159,6 +165,7 @@ func (c *Client) GetSeries(seriesID string) (*SeriesProposition, error) {
 	}, nil
 }
 
+// GetEpisodes retrieves all episodes for a specific season of a series
 func (c *Client) GetEpisodes(seriesID string, season int) ([]Episode, error) {
 	if c.token == "" {
 		return nil, fmt.Errorf("not authenticated, call Login() first")
@@ -192,6 +199,7 @@ func (c *Client) GetEpisodes(seriesID string, season int) ([]Episode, error) {
 	return episodesResp.Data, nil
 }
 
+// GetMovie retrieves detailed information about a movie by ID
 func (c *Client) GetMovie(movieID string) (*MovieProposition, error) {
 	if c.token == "" {
 		return nil, fmt.Errorf("not authenticated, call Login() first")

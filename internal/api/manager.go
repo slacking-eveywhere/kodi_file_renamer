@@ -9,6 +9,7 @@ import (
 	"kodi-renamer/internal/tvdb"
 )
 
+// Manager orchestrates multiple API clients (TVDB and TMDB) for media search
 type Manager struct {
 	tvdbClient *tvdb.Client
 	tmdbClient *tmdb.Client
@@ -16,6 +17,7 @@ type Manager struct {
 	hasTMDB    bool
 }
 
+// UnifiedProposition represents a search result from any API source
 type UnifiedProposition struct {
 	ID           string
 	Title        string
@@ -27,6 +29,7 @@ type UnifiedProposition struct {
 	Score        float64
 }
 
+// UnifiedMovieProposition represents detailed movie information from any API source
 type UnifiedMovieProposition struct {
 	ID       string
 	Title    string
@@ -37,6 +40,7 @@ type UnifiedMovieProposition struct {
 	Source   string
 }
 
+// UnifiedSeriesProposition represents detailed TV series information from any API source
 type UnifiedSeriesProposition struct {
 	ID         string
 	Name       string
@@ -48,6 +52,7 @@ type UnifiedSeriesProposition struct {
 	Source     string
 }
 
+// UnifiedEpisodeInfo represents episode details from any API source
 type UnifiedEpisodeInfo struct {
 	SeriesName    string
 	SeasonNumber  int
@@ -57,6 +62,7 @@ type UnifiedEpisodeInfo struct {
 	Source        string
 }
 
+// NewManager creates a new API manager with the provided API keys
 func NewManager(tvdbAPIKey, tmdbAPIKey string) (*Manager, error) {
 	m := &Manager{}
 
@@ -84,6 +90,7 @@ func NewManager(tvdbAPIKey, tmdbAPIKey string) (*Manager, error) {
 	return m, nil
 }
 
+// GetConfiguredAPIs returns a list of API names that are currently configured
 func (m *Manager) GetConfiguredAPIs() []string {
 	apis := []string{}
 	if m.hasTVDB {
@@ -95,6 +102,7 @@ func (m *Manager) GetConfiguredAPIs() []string {
 	return apis
 }
 
+// Search performs a general search across all configured APIs
 func (m *Manager) Search(query string) ([]UnifiedProposition, error) {
 	var allProps []UnifiedProposition
 
@@ -155,6 +163,7 @@ func (m *Manager) Search(query string) ([]UnifiedProposition, error) {
 	return allProps, nil
 }
 
+// SearchMovies searches specifically for movies across all configured APIs
 func (m *Manager) SearchMovies(query string) ([]UnifiedProposition, error) {
 	var allProps []UnifiedProposition
 
@@ -215,6 +224,7 @@ func (m *Manager) SearchMovies(query string) ([]UnifiedProposition, error) {
 	return allProps, nil
 }
 
+// SearchSeries searches specifically for TV series across all configured APIs
 func (m *Manager) SearchSeries(query string) ([]UnifiedProposition, error) {
 	var allProps []UnifiedProposition
 
@@ -275,6 +285,7 @@ func (m *Manager) SearchSeries(query string) ([]UnifiedProposition, error) {
 	return allProps, nil
 }
 
+// GetMovie retrieves detailed movie information by ID from the specified API source
 func (m *Manager) GetMovie(id, source string) (*UnifiedMovieProposition, error) {
 	switch source {
 	case "tvdb":
@@ -322,6 +333,7 @@ func (m *Manager) GetMovie(id, source string) (*UnifiedMovieProposition, error) 
 	}
 }
 
+// GetSeries retrieves detailed TV series information by ID from the specified API source
 func (m *Manager) GetSeries(id, source string) (*UnifiedSeriesProposition, error) {
 	switch source {
 	case "tvdb":
@@ -371,6 +383,7 @@ func (m *Manager) GetSeries(id, source string) (*UnifiedSeriesProposition, error
 	}
 }
 
+// GetEpisode retrieves specific episode information by series ID, season, and episode number from the specified API source
 func (m *Manager) GetEpisode(id, source string, season, episode int) (*UnifiedEpisodeInfo, error) {
 	switch source {
 	case "tvdb":
@@ -428,6 +441,7 @@ func (m *Manager) GetEpisode(id, source string, season, episode int) (*UnifiedEp
 	}
 }
 
+// mapTMDBType converts TMDB media types to unified type names
 func mapTMDBType(tmdbType string) string {
 	switch tmdbType {
 	case "tv":

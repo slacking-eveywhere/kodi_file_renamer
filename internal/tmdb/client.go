@@ -11,14 +11,17 @@ import (
 )
 
 const (
+	// BaseURL is the base URL for The Movie Database (TMDb) API v3
 	BaseURL = "https://api.themoviedb.org/3"
 )
 
+// Client represents a TMDb API client
 type Client struct {
 	apiKey     string
 	httpClient *http.Client
 }
 
+// NewClient creates a new TMDb API client with the provided API key
 func NewClient(apiKey string) *Client {
 	return &Client{
 		apiKey: apiKey,
@@ -28,10 +31,12 @@ func NewClient(apiKey string) *Client {
 	}
 }
 
+// IsConfigured checks if the client has a valid API key configured
 func (c *Client) IsConfigured() bool {
 	return c.apiKey != ""
 }
 
+// Search performs a multi-search across movies and TV shows on TMDb
 func (c *Client) Search(query string) ([]Proposition, error) {
 	if c.apiKey == "" {
 		return nil, fmt.Errorf("TMDB API key not configured")
@@ -72,6 +77,7 @@ func (c *Client) Search(query string) ([]Proposition, error) {
 	return propositions, nil
 }
 
+// resultToProposition converts a TMDb search result to a unified Proposition
 func (c *Client) resultToProposition(result SearchResult) Proposition {
 	prop := Proposition{
 		ID:          result.ID,
@@ -102,6 +108,7 @@ func (c *Client) resultToProposition(result SearchResult) Proposition {
 	return prop
 }
 
+// GetMovie retrieves detailed information about a movie by TMDb ID
 func (c *Client) GetMovie(movieID int) (*MovieProposition, error) {
 	if c.apiKey == "" {
 		return nil, fmt.Errorf("TMDB API key not configured")
@@ -151,6 +158,7 @@ func (c *Client) GetMovie(movieID int) (*MovieProposition, error) {
 	}, nil
 }
 
+// GetTVShow retrieves detailed information about a TV show by TMDb ID
 func (c *Client) GetTVShow(tvID int) (*SeriesProposition, error) {
 	if c.apiKey == "" {
 		return nil, fmt.Errorf("TMDB API key not configured")
@@ -201,6 +209,7 @@ func (c *Client) GetTVShow(tvID int) (*SeriesProposition, error) {
 	}, nil
 }
 
+// GetEpisode retrieves information about a specific episode by TV show ID, season, and episode number
 func (c *Client) GetEpisode(tvID, seasonNumber, episodeNumber int) (*EpisodeInfo, error) {
 	if c.apiKey == "" {
 		return nil, fmt.Errorf("TMDB API key not configured")
@@ -257,6 +266,7 @@ func (c *Client) GetEpisode(tvID, seasonNumber, episodeNumber int) (*EpisodeInfo
 	return nil, fmt.Errorf("episode S%02dE%02d not found", seasonNumber, episodeNumber)
 }
 
+// SearchMovie performs a search specifically for movies on TMDb
 func (c *Client) SearchMovie(query string) ([]Proposition, error) {
 	if c.apiKey == "" {
 		return nil, fmt.Errorf("TMDB API key not configured")
@@ -309,6 +319,7 @@ func (c *Client) SearchMovie(query string) ([]Proposition, error) {
 	return propositions, nil
 }
 
+// SearchTV performs a search specifically for TV shows on TMDb
 func (c *Client) SearchTV(query string) ([]Proposition, error) {
 	if c.apiKey == "" {
 		return nil, fmt.Errorf("TMDB API key not configured")
@@ -361,10 +372,12 @@ func (c *Client) SearchTV(query string) ([]Proposition, error) {
 	return propositions, nil
 }
 
+// FormatID converts an integer ID to a string
 func FormatID(id int) string {
 	return strconv.Itoa(id)
 }
 
+// ParseID converts a string ID to an integer
 func ParseID(idStr string) (int, error) {
 	id, err := strconv.Atoi(idStr)
 	if err != nil {

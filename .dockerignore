@@ -1,0 +1,49 @@
+# Build artifacts
+build/
+*.exe
+*.dll
+*.so
+*.dylib
+kodi-renamer
+test-scanner
+
+# Test files
+*_test.go
+*.test
+
+# Development files
+.git/
+.gitignore
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Documentation (optional, include if you want docs in image)
+*.md
+HOWTO
+API_GUIDE
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Test scripts
+*.sh
+quick_test.sh
+test_scanner.sh
+test_dual_api.sh
+FINAL_TEST.sh
+
+# Go cache and temp files
+.cache/
+tmp/
+vendor/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
