@@ -55,6 +55,3 @@ USER nonroot:nonroot
 
 # Set the entrypoint
 ENTRYPOINT ["/usr/local/bin/kodi-renamer"]
-
-# Default command shows help
-CMD ["-h"]

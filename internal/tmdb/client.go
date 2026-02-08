@@ -149,7 +149,7 @@ func (c *Client) GetMovie(movieID int) (*MovieProposition, error) {
 
 	return &MovieProposition{
 		ID:       movieDetails.ID,
-		Title:    movieDetails.Title,
+		Title:    movieDetails.OriginalTitle,
 		Overview: movieDetails.Overview,
 		Year:     year,
 		Runtime:  movieDetails.Runtime,
@@ -199,7 +199,7 @@ func (c *Client) GetTVShow(tvID int) (*SeriesProposition, error) {
 
 	return &SeriesProposition{
 		ID:         tvDetails.ID,
-		Name:       tvDetails.Name,
+		Name:       tvDetails.OriginalName,
 		Overview:   tvDetails.Overview,
 		Year:       year,
 		FirstAired: tvDetails.FirstAirDate,
@@ -267,13 +267,13 @@ func (c *Client) GetEpisode(tvID, seasonNumber, episodeNumber int) (*EpisodeInfo
 }
 
 // SearchMovie performs a search specifically for movies on TMDb
-func (c *Client) SearchMovie(query string) ([]Proposition, error) {
+func (c *Client) SearchMovie(query string, releaseYear int) ([]Proposition, error) {
 	if c.apiKey == "" {
 		return nil, fmt.Errorf("TMDB API key not configured")
 	}
 
 	encodedQuery := url.QueryEscape(query)
-	searchURL := fmt.Sprintf("%s/search/movie?api_key=%s&query=%s&include_adult=false", BaseURL, c.apiKey, encodedQuery)
+	searchURL := fmt.Sprintf("%s/search/movie?api_key=%s&query=%s&year=%d&include_adult=false", BaseURL, c.apiKey, encodedQuery, releaseYear)
 
 	req, err := http.NewRequest("GET", searchURL, nil)
 	if err != nil {
@@ -320,13 +320,13 @@ func (c *Client) SearchMovie(query string) ([]Proposition, error) {
 }
 
 // SearchTV performs a search specifically for TV shows on TMDb
-func (c *Client) SearchTV(query string) ([]Proposition, error) {
+func (c *Client) SearchTV(query string, releaseYear int) ([]Proposition, error) {
 	if c.apiKey == "" {
 		return nil, fmt.Errorf("TMDB API key not configured")
 	}
 
 	encodedQuery := url.QueryEscape(query)
-	searchURL := fmt.Sprintf("%s/search/tv?api_key=%s&query=%s&include_adult=false", BaseURL, c.apiKey, encodedQuery)
+	searchURL := fmt.Sprintf("%s/search/tv?api_key=%s&query=%s&year=%d&include_adult=false", BaseURL, c.apiKey, encodedQuery, releaseYear)
 
 	req, err := http.NewRequest("GET", searchURL, nil)
 	if err != nil {

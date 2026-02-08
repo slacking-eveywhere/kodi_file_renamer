@@ -4,8 +4,6 @@ build/
 *.dll
 *.so
 *.dylib
-kodi-renamer
-test-scanner
 
 # Test files
 *_test.go

@@ -11,7 +11,10 @@ import (
 
 var (
 	// videoExtensions lists all supported video file extensions
-	videoExtensions = []string{".mkv", ".mp4", ".avi", ".mov", ".wmv", ".flv", ".webm", ".m4v"}
+	videoExtensions = []string{".mkv", ".mp4", ".avi", ".mov", ".wmv", ".flv", ".webm", ".m4v", ".iso"}
+
+	// subtitleExtensions lists all supported subtitle file extensions
+	subtitleExtensions = []string{".srt", ".sub", ".ass", ".ssa", ".vtt"}
 
 	// seriesPatterns contains regular expressions to detect TV series episode numbering
 	seriesPatterns = []*regexp.Regexp{
@@ -22,21 +25,26 @@ var (
 	}
 
 	// yearPattern matches year formats in movie filenames
-	yearPattern = regexp.MustCompile(`\((\d{4})\)|\[(\d{4})\]|[\s\.](\d{4})[\s\.]`)
+	yearPattern = regexp.MustCompile(`\((\d{4})\)|\[(\d{4})\]|(?:^|[\s\.])(\d{4})(?:[\s\.]|$)`)
 )
 
 // MediaFile represents a media file with its metadata and classification
 type MediaFile struct {
-	Path      string
-	Name      string
-	Extension string
-	IsMovie   bool
-	IsSeries  bool
-	Season    int
-	Episode   int
-	Year      int
-	CleanName string
-	ParentDir string // Parent directory name for series files
+	Path          string
+	Name          string
+	Extension     string
+	IsMovie       bool
+	IsSeries      bool
+	Season        int
+	Episode       int
+	Year          int
+	CleanName     string
+	ParentDir     string   // Parent directory name for series files
+	IsMovieFolder bool     // True if movie is a folder (contains video + subtitles/extras)
+	MovieFiles    []string // All video files in movie folder
+	SubtitleFiles []string // All subtitle files in movie folder
+	IsBluRay      bool     // True if folder contains Blu-ray structure
+	IsDVD         bool     // True if folder contains DVD structure
 }
 
 // EpisodeRenameTask represents a pending episode rename operation
@@ -76,21 +84,48 @@ func NewScanner(rootPath string) *Scanner {
 // ScanDirectory recursively scans the root directory and returns all media files found
 func (s *Scanner) ScanDirectory() ([]MediaFile, error) {
 	var mediaFiles []MediaFile
+	processedDirs := make(map[string]bool)
 
 	err := filepath.Walk(s.rootPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
-		if info.IsDir() {
+		// Skip root directory
+		if path == s.rootPath {
 			return nil
 		}
 
+		// Check if this is a directory
+		if info.IsDir() {
+			// Skip if already processed
+			if processedDirs[path] {
+				return filepath.SkipDir
+			}
+
+			// Check if this is a movie folder
+			movieFile, isMovieFolder := s.parseMovieFolder(path)
+			if isMovieFolder {
+				mediaFiles = append(mediaFiles, movieFile)
+				processedDirs[path] = true
+				return filepath.SkipDir // Skip processing contents
+			}
+			return nil
+		}
+
+		// Process individual video files (not in movie folders)
 		ext := strings.ToLower(filepath.Ext(path))
 		if !isVideoFile(ext) {
 			return nil
 		}
 
+		// Check if parent directory is already processed as movie folder
+		parentDir := filepath.Dir(path)
+		if processedDirs[parentDir] {
+			return nil
+		}
+
+		// This is a standalone video file or series episode
 		mediaFile := s.parseFile(path, info.Name())
 		mediaFiles = append(mediaFiles, mediaFile)
 
@@ -177,6 +212,27 @@ func (s *Scanner) cleanSeriesName(name string) string {
 	return strings.TrimSpace(name)
 }
 
+// GetSeriesSearchQuery extracts clean series name from parent directory for API search
+func GetSeriesSearchQuery(parentDir string) string {
+	name := parentDir
+
+	// Remove year in parentheses or brackets
+	yearPattern := regexp.MustCompile(`\s*[\(\[]?\d{4}[\)\]]?\s*`)
+	name = yearPattern.ReplaceAllString(name, " ")
+
+	// Replace dots and underscores with spaces
+	name = strings.ReplaceAll(name, ".", " ")
+	name = strings.ReplaceAll(name, "_", " ")
+
+	// Remove common artifacts
+	name = removeCommonArtifacts(name)
+
+	// Clean up multiple spaces
+	name = regexp.MustCompile(`\s+`).ReplaceAllString(name, " ")
+
+	return strings.TrimSpace(name)
+}
+
 // cleanMovieName removes year and artifacts from a movie filename
 func (s *Scanner) cleanMovieName(name string) string {
 	// Remove year
@@ -226,6 +282,135 @@ func isVideoFile(ext string) bool {
 	return false
 }
 
+// isSubtitleFile checks if the given extension is a supported subtitle format
+func isSubtitleFile(ext string) bool {
+	for _, subExt := range subtitleExtensions {
+		if ext == subExt {
+			return true
+		}
+	}
+	return false
+}
+
+// parseMovieFolder checks if a directory is a movie folder and parses it
+func (s *Scanner) parseMovieFolder(dirPath string) (MediaFile, bool) {
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return MediaFile{}, false
+	}
+
+	var videoFiles []string
+	var subtitleFiles []string
+	var hasBluRay bool
+	var hasDVD bool
+
+	// Check for Blu-ray structure
+	for _, entry := range entries {
+		name := strings.ToUpper(entry.Name())
+		if entry.IsDir() && name == "BDMV" {
+			hasBluRay = true
+		}
+		if entry.IsDir() && name == "VIDEO_TS" {
+			hasDVD = true
+		}
+	}
+
+	// Collect video and subtitle files
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		ext := strings.ToLower(filepath.Ext(entry.Name()))
+		fullPath := filepath.Join(dirPath, entry.Name())
+
+		if isVideoFile(ext) {
+			videoFiles = append(videoFiles, fullPath)
+		} else if isSubtitleFile(ext) {
+			subtitleFiles = append(subtitleFiles, fullPath)
+		}
+	}
+
+	// Determine if this is a movie folder:
+	// 1. Has Blu-ray or DVD structure, OR
+	// 2. Has video files + subtitle files, OR
+	// 3. Has exactly one video file and folder name looks like a movie (has year or matches video name)
+	isMovieFolder := false
+	var mainVideoFile string
+
+	if hasBluRay || hasDVD {
+		isMovieFolder = true
+		if len(videoFiles) > 0 {
+			mainVideoFile = videoFiles[0]
+		}
+	} else if len(videoFiles) > 0 && len(subtitleFiles) > 0 {
+		isMovieFolder = true
+		mainVideoFile = videoFiles[0]
+	} else if len(videoFiles) == 1 {
+		// Check if folder name matches video file or contains year
+		folderName := filepath.Base(dirPath)
+		videoName := strings.TrimSuffix(filepath.Base(videoFiles[0]), filepath.Ext(videoFiles[0]))
+
+		// Check for year in folder name
+		hasYear := yearPattern.MatchString(folderName)
+
+		// Check if folder name is similar to video name (allowing for year differences)
+		cleanFolder := removeCommonArtifacts(folderName)
+		cleanVideo := removeCommonArtifacts(videoName)
+		namesMatch := strings.Contains(strings.ToLower(cleanFolder), strings.ToLower(cleanVideo)) ||
+			strings.Contains(strings.ToLower(cleanVideo), strings.ToLower(cleanFolder))
+
+		if hasYear || namesMatch {
+			isMovieFolder = true
+			mainVideoFile = videoFiles[0]
+		}
+	}
+
+	if !isMovieFolder {
+		return MediaFile{}, false
+	}
+
+	// Parse folder name as movie
+	folderName := filepath.Base(dirPath)
+	year := s.extractYear(folderName)
+	cleanName := s.cleanMovieName(folderName)
+
+	// If no year in folder name, try to get from main video file
+	if year == 0 && mainVideoFile != "" {
+		videoFileName := strings.TrimSuffix(filepath.Base(mainVideoFile), filepath.Ext(mainVideoFile))
+		year = s.extractYear(videoFileName)
+		if cleanName == "" || cleanName == filepath.Base(dirPath) {
+			cleanName = s.cleanMovieName(videoFileName)
+		}
+	}
+
+	// Determine extension from main video file
+	ext := ""
+	if mainVideoFile != "" {
+		ext = filepath.Ext(mainVideoFile)
+	} else if hasBluRay {
+		ext = ".bluray"
+	} else if hasDVD {
+		ext = ".dvd"
+	}
+
+	return MediaFile{
+		Path:          dirPath,
+		Name:          folderName,
+		Extension:     ext,
+		IsMovie:       true,
+		IsSeries:      false,
+		Year:          year,
+		CleanName:     cleanName,
+		IsMovieFolder: true,
+		MovieFiles:    videoFiles,
+		SubtitleFiles: subtitleFiles,
+		IsBluRay:      hasBluRay,
+		IsDVD:         hasDVD,
+		ParentDir:     filepath.Base(filepath.Dir(dirPath)),
+	}, true
+}
+
 // GetSearchQuery returns the clean name suitable for API searches
 func (m *MediaFile) GetSearchQuery() string {
 	return m.CleanName
@@ -244,15 +429,38 @@ func (m *MediaFile) GetNewFilename(seriesName, episodeName string) string {
 	return m.Name
 }
 
+// GetEpisodeFilename returns the formatted filename for a series episode
+func (m *MediaFile) GetEpisodeFilename(seriesName string, season, episode int, episodeName string) string {
+	seasonStr := fmt.Sprintf("S%02d", season)
+	episodeStr := fmt.Sprintf("E%02d", episode)
+	if episodeName != "" {
+		return fmt.Sprintf("%s %s%s - %s%s", seriesName, seasonStr, episodeStr, episodeName, m.Extension)
+	}
+	return fmt.Sprintf("%s %s%s%s", seriesName, seasonStr, episodeStr, m.Extension)
+}
+
 // GetMovieFilename generates a properly formatted filename for a movie
-func (m *MediaFile) GetMovieFilename(title string, year int) string {
+func (m *MediaFile) GetMovieFilename(title string, year string) string {
 	if m.IsMovie {
 		cleanTitle := strings.ReplaceAll(title, ":", " -")
 		cleanTitle = strings.ReplaceAll(cleanTitle, "/", " ")
-		if year > 0 {
-			return fmt.Sprintf("%s (%d)%s", cleanTitle, year, m.Extension)
+		if year != "" {
+			return fmt.Sprintf("%s (%s)%s", cleanTitle, year, m.Extension)
 		}
 		return fmt.Sprintf("%s%s", cleanTitle, m.Extension)
+	}
+	return m.Name
+}
+
+// GetMovieFolderName generates a properly formatted folder name for a movie
+func (m *MediaFile) GetMovieFolderName(title string, year string) string {
+	if m.IsMovie {
+		cleanTitle := strings.ReplaceAll(title, ":", " -")
+		cleanTitle = strings.ReplaceAll(cleanTitle, "/", " ")
+		if year != "" {
+			return fmt.Sprintf("%s (%s)", cleanTitle, year)
+		}
+		return cleanTitle
 	}
 	return m.Name
 }

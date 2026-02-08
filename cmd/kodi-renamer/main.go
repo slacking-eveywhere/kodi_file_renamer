@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	"kodi-renamer/internal/api"
 	"kodi-renamer/internal/renamer"
@@ -22,9 +21,9 @@ var (
 	serieRenamedDir  string
 	dryRun           bool
 	autoMode         bool
+	interactive      *ui.Interactive
 )
 
-// init initializes command-line flags for the application
 func init() {
 	flag.StringVar(&tvdbAPIKey, "tvdb-key", "", "TVDB API Key")
 	flag.StringVar(&tmdbAPIKey, "tmdb-key", "", "TMDB API Key")
@@ -36,11 +35,9 @@ func init() {
 	flag.BoolVar(&autoMode, "auto", false, "Automatic mode - select first match")
 }
 
-// main is the entry point of the application
 func main() {
 	flag.Parse()
 
-	// Check environment variables if flags not provided
 	if tvdbAPIKey == "" {
 		tvdbAPIKey = os.Getenv("TVDB_API_KEY")
 	}
@@ -60,7 +57,6 @@ func main() {
 		serieRenamedDir = os.Getenv("SERIE_RENAMED_DIR")
 	}
 
-	// Validate at least one API key is provided
 	if tvdbAPIKey == "" && tmdbAPIKey == "" {
 		fmt.Fprintf(os.Stderr, "Error: At least one API key is required\n\n")
 		fmt.Fprintf(os.Stderr, "Provide via flags:\n")
@@ -73,15 +69,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Validate directory configuration
 	if movieToRenameDir == "" && serieToRenameDir == "" {
 		fmt.Fprintf(os.Stderr, "Error: At least one input directory is required\n\n")
 		fmt.Fprintf(os.Stderr, "Provide via flags:\n")
 		fmt.Fprintf(os.Stderr, "  -movie-to-rename 'path/to/movies'\n")
 		fmt.Fprintf(os.Stderr, "  -serie-to-rename 'path/to/series'\n\n")
-		fmt.Fprintf(os.Stderr, "Or via environment variables:\n")
-		fmt.Fprintf(os.Stderr, "  export MOVIE_TO_RENAME_DIR='path/to/movies'\n")
-		fmt.Fprintf(os.Stderr, "  export SERIE_TO_RENAME_DIR='path/to/series'\n\n")
 		os.Exit(1)
 	}
 
@@ -91,102 +83,87 @@ func main() {
 	}
 }
 
-// run executes the main application logic for scanning and renaming media files
 func run() error {
-	interactive := ui.NewInteractive()
+	interactive = ui.NewInteractive()
+	apiManager := api.NewManager(tvdbAPIKey, tmdbAPIKey)
 	fileRenamer := renamer.NewRenamer(dryRun)
 
-	// Initialize API manager
-	apiManager, err := api.NewManager(tvdbAPIKey, tmdbAPIKey)
-	if err != nil {
-		return fmt.Errorf("failed to initialize API manager: %w", err)
+	if dryRun {
+		interactive.PrintInfo("Running in DRY RUN mode - no changes will be made")
 	}
 
 	configuredAPIs := apiManager.GetConfiguredAPIs()
 	interactive.PrintSuccess(fmt.Sprintf("Authenticated with: %v", configuredAPIs))
 
-	// Process series if directory is configured
-	if serieToRenameDir != "" {
-		interactive.PrintInfo(fmt.Sprintf("Scanning series directory: %s", serieToRenameDir))
-
-		fileScanner := scanner.NewScanner(serieToRenameDir)
-		mediaFiles, err := fileScanner.ScanDirectory()
-		if err != nil {
-			return fmt.Errorf("failed to scan series directory: %w", err)
-		}
-
-		// Filter for series only
-		var seriesFiles []scanner.MediaFile
-		for _, file := range mediaFiles {
-			if file.IsSeries {
-				seriesFiles = append(seriesFiles, file)
-			}
-		}
-
-		if len(seriesFiles) > 0 {
-			interactive.PrintInfo(fmt.Sprintf("Found %d series episode(s)", len(seriesFiles)))
-
-			// Group series episodes by folder for batch processing
-			seriesByFolder := scanner.GroupSeriesByFolder(seriesFiles)
-
-			// Process series in batches by folder
-			processedFolders := make(map[string]bool)
-			for folderPath := range seriesByFolder {
-				if processedFolders[folderPath] {
-					continue
-				}
-				if !autoMode || !dryRun {
-					fmt.Print("\033[H\033[2J")
-				}
-				interactive.PrintInfo(fmt.Sprintf("Processing series folder: %s", folderPath))
-
-				if err := processSeriesBatch(seriesByFolder[folderPath], apiManager, interactive, fileRenamer, serieRenamedDir); err != nil {
-					interactive.PrintError(fmt.Sprintf("Failed to process series folder: %v", err))
-				}
-				processedFolders[folderPath] = true
-			}
-		} else {
-			interactive.PrintWarning("No series files found")
-		}
-	}
-
-	// Process movies if directory is configured
 	if movieToRenameDir != "" {
-		interactive.PrintInfo(fmt.Sprintf("\nScanning movie directory: %s", movieToRenameDir))
-
-		fileScanner := scanner.NewScanner(movieToRenameDir)
-		mediaFiles, err := fileScanner.ScanDirectory()
+		interactive.PrintHeader("Processing Movies")
+		movieScanner := scanner.NewScanner(movieToRenameDir)
+		mediaFiles, err := movieScanner.ScanDirectory()
 		if err != nil {
 			return fmt.Errorf("failed to scan movie directory: %w", err)
 		}
 
-		// Filter for movies only
-		var movieFiles []scanner.MediaFile
-		for _, file := range mediaFiles {
-			if file.IsMovie {
-				movieFiles = append(movieFiles, file)
+		movies := make([]*scanner.MediaFile, 0)
+		for i := range mediaFiles {
+			if mediaFiles[i].IsMovie {
+				movies = append(movies, &mediaFiles[i])
 			}
 		}
 
-		if len(movieFiles) > 0 {
-			interactive.PrintInfo(fmt.Sprintf("Found %d movie(s)", len(movieFiles)))
+		if len(movies) == 0 {
+			interactive.PrintInfo("No movies found in directory")
+		} else {
+			interactive.PrintInfo(fmt.Sprintf("Found %d movie(s)", len(movies)))
 
-			// Process movies individually
-			movieCount := 0
-			for _, file := range movieFiles {
-				movieCount++
-				if !autoMode || !dryRun {
-					fmt.Print("\033[H\033[2J")
-				}
-				fmt.Printf("\n[Movie %d/%d] Processing: %s\n", movieCount, len(movieFiles), file.Name)
-
-				if err := processMovie(&file, apiManager, interactive, fileRenamer, movieRenamedDir); err != nil {
-					interactive.PrintError(fmt.Sprintf("Failed to process movie: %v", err))
-					continue
+			for _, movie := range movies {
+				if err := processMovie(movie, apiManager, interactive, fileRenamer, movieRenamedDir); err != nil {
+					interactive.PrintError(fmt.Sprintf("Failed to process %s: %v", movie.Name, err))
+					if !autoMode {
+						if !interactive.Confirm("Continue with next movie?") {
+							break
+						}
+					}
 				}
 			}
+		}
+	}
+
+	if serieToRenameDir != "" {
+		interactive.PrintHeader("Processing Series")
+		seriesScanner := scanner.NewScanner(serieToRenameDir)
+		mediaFiles, err := seriesScanner.ScanDirectory()
+		if err != nil {
+			return fmt.Errorf("failed to scan series directory: %w", err)
+		}
+
+		series := make([]*scanner.MediaFile, 0)
+		for i := range mediaFiles {
+			if mediaFiles[i].IsSeries {
+				series = append(series, &mediaFiles[i])
+			}
+		}
+
+		if len(series) == 0 {
+			interactive.PrintInfo("No series found in directory")
 		} else {
-			interactive.PrintWarning("No movie files found")
+			interactive.PrintInfo(fmt.Sprintf("Found %d episode(s)", len(series)))
+
+			seriesMap := make(map[string][]*scanner.MediaFile)
+			for _, ep := range series {
+				parentDir := ep.ParentDir
+				seriesMap[parentDir] = append(seriesMap[parentDir], ep)
+			}
+
+			for parentDir, episodes := range seriesMap {
+				if err := processSeriesBatch(parentDir, episodes, apiManager, interactive, fileRenamer, serieRenamedDir); err != nil {
+					interactive.PrintError(fmt.Sprintf("Failed to process series %s: %v", parentDir, err))
+					if !autoMode {
+						if !interactive.Confirm("Continue with next series?") {
+							break
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -194,16 +171,17 @@ func run() error {
 	return nil
 }
 
-// processSeriesBatch handles batch processing of all episodes in a series folder
-func processSeriesBatch(episodes []*scanner.MediaFile, apiManager *api.Manager, interactive *ui.Interactive, fileRenamer *renamer.Renamer, outputDir string) error {
+func processSeriesBatch(parentDir string, episodes []*scanner.MediaFile, apiManager *api.Manager, interactive *ui.Interactive, fileRenamer *renamer.Renamer, outputDir string) error {
 	if len(episodes) == 0 {
 		return nil
 	}
 
-	// Use first episode to search for series
+	interactive.PrintHeader(fmt.Sprintf("Processing Series: %s", parentDir))
+
 	firstEpisode := episodes[0]
-	searchQuery := firstEpisode.GetSearchQuery()
-	fmt.Printf("Searching for series: '%s'\n", searchQuery)
+	searchQuery := scanner.GetSeriesSearchQuery(parentDir)
+
+	fmt.Printf("Searching for series: '%s' (from folder: %s)\n", searchQuery, parentDir)
 
 	propositions, err := apiManager.SearchSeries(searchQuery)
 	if err != nil {
@@ -221,12 +199,11 @@ func processSeriesBatch(episodes []*scanner.MediaFile, apiManager *api.Manager, 
 	if autoMode {
 		selectedIndex = 0
 		interactive.PrintInfo(fmt.Sprintf("Auto-selecting first result from %s", propositions[0].Source))
-		seriesDetails, err = apiManager.GetSeries(propositions[0].ID, propositions[0].Source)
+		seriesDetails, err = apiManager.GetSeries(propositions[selectedIndex].ID, propositions[selectedIndex].Source)
 		if err != nil {
 			return fmt.Errorf("failed to get series details: %w", err)
 		}
 	} else {
-		// Fetch details for all series to display in table
 		fmt.Println("Fetching series details...")
 		seriesOptions := make([]ui.SeriesOption, 0, len(propositions))
 
@@ -234,10 +211,9 @@ func processSeriesBatch(episodes []*scanner.MediaFile, apiManager *api.Manager, 
 			details, err := apiManager.GetSeries(prop.ID, prop.Source)
 			if err != nil {
 				seriesOptions = append(seriesOptions, ui.SeriesOption{
-					Name:   prop.Title,
+					Name:   prop.Name,
 					Year:   prop.Year,
 					Status: "",
-					Genres: []string{},
 					Source: prop.Source,
 				})
 				continue
@@ -247,13 +223,12 @@ func processSeriesBatch(episodes []*scanner.MediaFile, apiManager *api.Manager, 
 				Name:   details.Name,
 				Year:   details.Year,
 				Status: details.Status,
-				Genres: details.Genres,
 				Source: details.Source,
 			})
 		}
 
 		selectedIndex, err = interactive.SelectSeriesFromList(
-			fmt.Sprintf("Select TV series for '%s'", firstEpisode.CleanName),
+			fmt.Sprintf("Select series for '%s'", firstEpisode.CleanName),
 			seriesOptions,
 		)
 		if err != nil {
@@ -271,127 +246,150 @@ func processSeriesBatch(episodes []*scanner.MediaFile, apiManager *api.Manager, 
 		}
 	}
 
-	interactive.DisplaySeriesInfo(seriesDetails.Name, seriesDetails.Year, seriesDetails.Status, seriesDetails.Genres)
+	interactive.DisplaySeriesInfo(seriesDetails.Name, seriesDetails.Year, seriesDetails.Status)
 
-	// Fetch episode details for all episodes
+	batch := &scanner.SeriesBatchRename{
+		OriginalFolderPath: filepath.Dir(firstEpisode.Path),
+		OriginalFolderName: parentDir,
+		NewFolderName:      seriesDetails.GetFolderName(),
+		SeriesName:         seriesDetails.Name,
+		SeriesYear:         seriesDetails.Year,
+		Episodes:           make([]scanner.EpisodeRenameTask, 0),
+		NeedsFolderRename:  parentDir != seriesDetails.GetFolderName(),
+	}
+
 	fmt.Println("\nFetching episode details...")
-
-	episodeList := make([]ui.EpisodeDisplay, 0, len(episodes))
-	hasErrors := false
-
 	for _, ep := range episodes {
-		episodeInfo, err := apiManager.GetEpisode(propositions[selectedIndex].ID, propositions[selectedIndex].Source, ep.Season, ep.Episode)
+		episodeDetails, err := apiManager.GetEpisode(seriesDetails.ID, seriesDetails.Source, ep.Season, ep.Episode)
+		if err != nil {
+			batch.Episodes = append(batch.Episodes, scanner.EpisodeRenameTask{
+				File:         ep,
+				EpisodeName:  "Unknown Episode",
+				NewFilename:  ep.GetEpisodeFilename(seriesDetails.Name, ep.Season, ep.Episode, "Unknown Episode"),
+				Season:       ep.Season,
+				Episode:      ep.Episode,
+				HasError:     true,
+				ErrorMessage: err.Error(),
+			})
+			continue
+		}
 
-		display := ui.EpisodeDisplay{
+		newFilename := ep.GetEpisodeFilename(seriesDetails.Name, ep.Season, ep.Episode, episodeDetails.Name)
+		batch.Episodes = append(batch.Episodes, scanner.EpisodeRenameTask{
+			File:        ep,
+			EpisodeName: episodeDetails.Name,
+			NewFilename: newFilename,
 			Season:      ep.Season,
 			Episode:     ep.Episode,
-			CurrentName: ep.Name,
-		}
-
-		if err != nil {
-			display.HasError = true
-			display.ErrorMessage = "NOT FOUND"
-			display.NewName = ""
-			display.EpisodeName = "Unknown"
-			hasErrors = true
-		} else {
-			display.EpisodeName = episodeInfo.EpisodeName
-			display.NewName = ep.GetNewFilename(seriesDetails.Name, episodeInfo.EpisodeName)
-			display.HasError = false
-		}
-
-		episodeList = append(episodeList, display)
+			HasError:    false,
+		})
 	}
 
-	// Display the table
-	interactive.DisplayEpisodeRenameTable(seriesDetails.Name, episodeList)
-
-	// Check for errors
-	if hasErrors {
-		interactive.PrintError("Cannot proceed with renaming due to unknown episodes")
-		return fmt.Errorf("some episodes could not be found in the database")
+	batchInfo := &ui.BatchRenameInfo{
+		SeriesName: batch.SeriesName,
+		Episodes:   make([]ui.BatchEpisodeTask, 0, len(batch.Episodes)),
 	}
 
-	// Generate folder name
-	newFolderName := firstEpisode.GetSeriesFolderName(seriesDetails.Name, seriesDetails.Year)
-	needsFolderRename := firstEpisode.NeedsSeriesFolderRename(newFolderName)
-
-	if needsFolderRename {
-		interactive.PrintInfo(fmt.Sprintf("\nSeries folder will be renamed to: %s", newFolderName))
+	for _, task := range batch.Episodes {
+		batchInfo.Episodes = append(batchInfo.Episodes, ui.BatchEpisodeTask{
+			CurrentName:  task.File.Name,
+			NewFilename:  task.NewFilename,
+			EpisodeName:  task.EpisodeName,
+			Season:       task.Season,
+			Episode:      task.Episode,
+			HasError:     task.HasError,
+			ErrorMessage: task.ErrorMessage,
+		})
 	}
 
-	// Ask for confirmation
+	interactive.DisplayEpisodeBatch(batchInfo)
+
 	if !autoMode && !dryRun {
-		if !interactive.Confirm(fmt.Sprintf("\nProceed with renaming %d episode(s)?", len(episodeList))) {
+		if !interactive.Confirm("Proceed with renaming all episodes?") {
 			interactive.PrintInfo("Skipped")
 			return nil
 		}
 	}
 
-	// Perform renames
-	if dryRun {
-		if needsFolderRename {
-			interactive.PrintSuccess(fmt.Sprintf("Would rename folder to: %s", newFolderName))
-		}
-		for _, ep := range episodeList {
-			if !ep.HasError {
-				interactive.PrintSuccess(fmt.Sprintf("Would rename: %s -> %s", ep.CurrentName, ep.NewName))
+	if outputDir != "" {
+		newFolderPath := filepath.Join(outputDir, batch.NewFolderName)
+
+		if !dryRun {
+			if err := os.MkdirAll(newFolderPath, 0755); err != nil {
+				return fmt.Errorf("failed to create output folder: %w", err)
 			}
 		}
-		return nil
-	}
 
-	// Rename or move folder
-	var newFolderPath string
-	if outputDir != "" {
-		// Move to output directory
-		newFolderPath = filepath.Join(outputDir, newFolderName)
-		if err := fileRenamer.MoveSeriesFolder(firstEpisode.GetParentDirPath(), newFolderPath); err != nil {
-			return fmt.Errorf("failed to move folder: %w", err)
-		}
-	} else if needsFolderRename {
-		// Just rename in place
-		newFolderPath, err = fileRenamer.RenameSeriesFolder(firstEpisode.GetParentDirPath(), newFolderName)
-		if err != nil {
-			return fmt.Errorf("failed to rename folder: %w", err)
+		for _, task := range batch.Episodes {
+			if task.HasError {
+				interactive.PrintWarning(fmt.Sprintf("Skipping S%02dE%02d: %s", task.Season, task.Episode, task.ErrorMessage))
+				continue
+			}
+
+			oldPath := task.File.Path
+			newPath := filepath.Join(newFolderPath, task.NewFilename)
+
+			if dryRun {
+				fmt.Printf("[DRY RUN] Would move:\n  FROM: %s\n  TO:   %s\n\n", oldPath, newPath)
+			} else {
+				if err := os.Rename(oldPath, newPath); err != nil {
+					interactive.PrintError(fmt.Sprintf("Failed to move %s: %v", task.File.Name, err))
+				} else {
+					fmt.Printf("Moved:\n  FROM: %s\n  TO:   %s\n\n", oldPath, newPath)
+				}
+			}
 		}
 	} else {
-		newFolderPath = firstEpisode.GetParentDirPath()
+		if batch.NeedsFolderRename {
+			newFolderPath, err := fileRenamer.RenameSeriesFolder(batch.OriginalFolderPath, batch.NewFolderName)
+			if err != nil {
+				return fmt.Errorf("failed to rename series folder: %w", err)
+			}
+			batch.OriginalFolderPath = newFolderPath
+		}
+
+		for _, task := range batch.Episodes {
+			if task.HasError {
+				interactive.PrintWarning(fmt.Sprintf("Skipping S%02dE%02d: %s", task.Season, task.Episode, task.ErrorMessage))
+				continue
+			}
+
+			oldPath := task.File.Path
+			if batch.NeedsFolderRename && !dryRun {
+				oldPath = filepath.Join(batch.OriginalFolderPath, task.File.Name)
+			}
+
+			if err := fileRenamer.RenameFileSilent(oldPath, task.NewFilename); err != nil {
+				interactive.PrintError(fmt.Sprintf("Failed to rename %s: %v", task.File.Name, err))
+			}
+		}
+
+		if !dryRun {
+			fmt.Printf("\nSuccessfully renamed %d episode(s) in series '%s'\n\n", len(batch.Episodes), batch.SeriesName)
+		}
 	}
 
-	// Rename episodes silently
-	successCount := 0
-	for i, ep := range episodeList {
-		if ep.HasError {
-			continue
-		}
-
-		episodeInfo, _ := apiManager.GetEpisode(propositions[selectedIndex].ID, propositions[selectedIndex].Source, ep.Season, ep.Episode)
-		newFilename := episodes[i].GetNewFilename(seriesDetails.Name, episodeInfo.EpisodeName)
-
-		// Update path if folder was renamed
-		filePath := episodes[i].Path
-		if needsFolderRename {
-			filePath = filepath.Join(newFolderPath, episodes[i].Name)
-		}
-
-		if err := fileRenamer.RenameFileSilent(filePath, newFilename); err != nil {
-			interactive.PrintError(fmt.Sprintf("Failed to rename %s: %v", ep.CurrentName, err))
-			continue
-		}
-		successCount++
-	}
-
-	interactive.PrintSuccess(fmt.Sprintf("Successfully renamed %d/%d episodes", successCount, len(episodeList)))
 	return nil
 }
 
-// processMovie handles the search, selection, and renaming workflow for movies
 func processMovie(file *scanner.MediaFile, apiManager *api.Manager, interactive *ui.Interactive, fileRenamer *renamer.Renamer, outputDir string) error {
 	searchQuery := file.GetSearchQuery()
-	fmt.Printf("Searching for: '%s'\n", searchQuery)
+	year := file.Year
 
-	propositions, err := apiManager.SearchMovies(searchQuery)
+	if file.IsMovieFolder {
+		if file.IsBluRay {
+			fmt.Printf("Processing Blu-ray folder: '%s'\n", file.Name)
+		} else if file.IsDVD {
+			fmt.Printf("Processing DVD folder: '%s'\n", file.Name)
+		} else {
+			fmt.Printf("Processing movie folder: '%s' (%d video files, %d subtitles)\n",
+				file.Name, len(file.MovieFiles), len(file.SubtitleFiles))
+		}
+	}
+
+	fmt.Printf("Searching for: '%s (%d)'\n", searchQuery, year)
+
+	propositions, err := apiManager.SearchMovies(searchQuery, year)
 	if err != nil {
 		return fmt.Errorf("search failed: %w", err)
 	}
@@ -412,14 +410,12 @@ func processMovie(file *scanner.MediaFile, apiManager *api.Manager, interactive 
 			return fmt.Errorf("failed to get movie details: %w", err)
 		}
 	} else {
-		// Fetch details for all movies to display in table
 		fmt.Println("Fetching movie details...")
 		movieOptions := make([]ui.MovieOption, 0, len(propositions))
 
 		for _, prop := range propositions {
 			details, err := apiManager.GetMovie(prop.ID, prop.Source)
 			if err != nil {
-				// If we can't get details, create a basic option
 				movieOptions = append(movieOptions, ui.MovieOption{
 					Title:   prop.Title,
 					Year:    prop.Year,
@@ -452,7 +448,6 @@ func processMovie(file *scanner.MediaFile, apiManager *api.Manager, interactive 
 			return nil
 		}
 
-		// Get the full details for the selected movie (already fetched above)
 		movieDetails, err = apiManager.GetMovie(propositions[selectedIndex].ID, propositions[selectedIndex].Source)
 		if err != nil {
 			return fmt.Errorf("failed to get movie details: %w", err)
@@ -461,20 +456,70 @@ func processMovie(file *scanner.MediaFile, apiManager *api.Manager, interactive 
 
 	interactive.DisplayMovieInfo(movieDetails.Title, movieDetails.Year, movieDetails.Runtime, movieDetails.Genres)
 
-	year, _ := strconv.Atoi(movieDetails.Year)
-	newFilename := file.GetMovieFilename(movieDetails.Title, year)
+	if file.IsMovieFolder {
+		return processMovieFolder(file, movieDetails, fileRenamer, outputDir)
+	}
+
+	return processStandaloneMovie(file, movieDetails, fileRenamer, outputDir)
+}
+
+func processMovieFolder(file *scanner.MediaFile, movieDetails *api.UnifiedMovieProposition, fileRenamer *renamer.Renamer, outputDir string) error {
+	title := movieDetails.Title
+	year := movieDetails.Year
+
+	newFolderName := file.GetMovieFolderName(title, year)
+
+	targetDir := outputDir
+	if targetDir == "" {
+		targetDir = filepath.Dir(filepath.Dir(file.Path))
+	}
+
+	var mainVideoFile string
+	if len(file.MovieFiles) > 0 {
+		mainVideoFile = filepath.Base(file.MovieFiles[0])
+	}
 
 	if !autoMode && !dryRun {
-		if !interactive.Confirm(fmt.Sprintf("Rename to '%s'?", newFilename)) {
+		if !interactive.Confirm(fmt.Sprintf("Move/rename folder to '%s'?", newFolderName)) {
 			interactive.PrintInfo("Skipped")
 			return nil
 		}
 	}
 
-	// Move to output directory if specified, otherwise rename in place
-	if outputDir != "" {
-		newPath := filepath.Join(outputDir, newFilename)
-		return fileRenamer.MoveFile(file.Path, newPath)
+	if err := fileRenamer.MoveRenameMovieFolder(file.Path, targetDir, newFolderName); err != nil {
+		return err
 	}
-	return fileRenamer.RenameFile(file.Path, newFilename)
+
+	if mainVideoFile != "" {
+		newFileName := file.GetMovieFilename(title, year)
+		newFolderPath := filepath.Join(targetDir, newFolderName)
+
+		if err := fileRenamer.RenameMovieFileInFolder(newFolderPath, mainVideoFile, newFileName); err != nil {
+			interactive.PrintWarning(fmt.Sprintf("Failed to rename video file: %v", err))
+		}
+	}
+
+	return nil
+}
+
+func processStandaloneMovie(file *scanner.MediaFile, movieDetails *api.UnifiedMovieProposition, fileRenamer *renamer.Renamer, outputDir string) error {
+	title := movieDetails.Title
+	year := movieDetails.Year
+
+	folderName := file.GetMovieFolderName(title, year)
+	newFilename := file.GetMovieFilename(title, year)
+
+	targetDir := outputDir
+	if targetDir == "" {
+		targetDir = filepath.Dir(file.Path)
+	}
+
+	if !autoMode && !dryRun {
+		if !interactive.Confirm(fmt.Sprintf("Create folder '%s' and move/rename to '%s'?", folderName, newFilename)) {
+			interactive.PrintInfo("Skipped")
+			return nil
+		}
+	}
+
+	return fileRenamer.MoveRenameMovieFile(file.Path, targetDir, folderName, newFilename)
 }

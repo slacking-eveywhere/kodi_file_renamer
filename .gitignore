@@ -1,2 +1,84 @@
-kodi-renamer
-test-scanner
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.txt
+coverage.html
+
+# Dependency directories
+vendor/
+
+# Go workspace file
+go.work
+
+# Build directory
+build/
+dist/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+env.example.local
+*.env
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS-specific files
+Thumbs.db
+.AppleDouble
+.LSOverride
+
+# Test media directories (if you create them for testing)
+test_media/
+test_output/
+/tmp/
+
+# API keys and credentials (extra safety)
+*_API_KEY
+*_api_key
+credentials.json
+secrets.yaml
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Go sum backup
+go.sum.backup
+
+# Debug files
+debug
+__debug_bin
+
+# Local configuration overrides
+config.local.*
+*.local.json
+*.local.yaml
+*.local.toml

@@ -304,12 +304,9 @@ func (i *Interactive) DisplayProposition(index int, title, overview, year, propT
 }
 
 // DisplaySeriesInfo displays detailed information about a TV series
-func (i *Interactive) DisplaySeriesInfo(name, year, status string, genres []string) {
+func (i *Interactive) DisplaySeriesInfo(name, year, status string) {
 	fmt.Printf("\nSeries: %s (%s)\n", name, year)
 	fmt.Printf("Status: %s\n", status)
-	if len(genres) > 0 {
-		fmt.Printf("Genres: %s\n", strings.Join(genres, ", "))
-	}
 }
 
 // DisplayEpisodeInfo displays information about a specific episode
@@ -348,6 +345,11 @@ func (i *Interactive) PrintSuccess(message string) {
 	fmt.Printf("✓ %s\n", message)
 }
 
+// PrintHeader prints a header message with separators
+func (i *Interactive) PrintHeader(message string) {
+	fmt.Printf("\n=== %s ===\n\n", message)
+}
+
 // DisplayEpisodeRenameTable displays a table of pending episode renames with warnings for unknown episodes
 func (i *Interactive) DisplayEpisodeRenameTable(seriesName string, episodes []EpisodeDisplay) {
 	fmt.Printf("\n=== Pending Renames for: %s ===\n\n", seriesName)
@@ -383,6 +385,85 @@ func (i *Interactive) DisplayEpisodeRenameTable(seriesName string, episodes []Ep
 			currentStr = currentStr[:maxCurrent-3] + "..."
 		}
 		newStr := ep.NewName
+		if len(newStr) > maxNew {
+			newStr = newStr[:maxNew-3] + "..."
+		}
+		episodeStr := ep.EpisodeName
+		if len(episodeStr) > maxEpisodeName {
+			episodeStr = episodeStr[:maxEpisodeName-3] + "..."
+		}
+
+		status := "✓ OK"
+		if ep.HasError {
+			status = "✗ " + ep.ErrorMessage
+			hasErrors = true
+		}
+
+		fmt.Printf("S%02dE%02d     %-*s  %-*s  %-*s  %s\n",
+			ep.Season, ep.Episode, maxCurrent, currentStr, maxNew, newStr, maxEpisodeName, episodeStr, status)
+	}
+
+	fmt.Println()
+
+	if hasErrors {
+		fmt.Println("⚠ WARNING: Some episodes have errors and cannot be renamed!")
+		fmt.Println("   Please resolve these issues before proceeding.")
+		fmt.Println()
+	}
+}
+
+// BatchEpisodeTask represents a single episode rename task for batch display
+type BatchEpisodeTask struct {
+	CurrentName  string
+	NewFilename  string
+	EpisodeName  string
+	Season       int
+	Episode      int
+	HasError     bool
+	ErrorMessage string
+}
+
+// BatchRenameInfo contains information for displaying batch rename preview
+type BatchRenameInfo struct {
+	SeriesName string
+	Episodes   []BatchEpisodeTask
+}
+
+// DisplayEpisodeBatch displays a table of pending episode renames from a batch structure
+func (i *Interactive) DisplayEpisodeBatch(info *BatchRenameInfo) {
+	fmt.Printf("\n=== Pending Renames for: %s ===\n\n", info.SeriesName)
+
+	// Calculate column widths
+	maxCurrent := 30
+	maxNew := 30
+	maxEpisodeName := 40
+
+	for _, ep := range info.Episodes {
+		if len(ep.CurrentName) > maxCurrent {
+			maxCurrent = len(ep.CurrentName)
+		}
+		if len(ep.NewFilename) > maxNew {
+			maxNew = len(ep.NewFilename)
+		}
+		if len(ep.EpisodeName) > maxEpisodeName {
+			maxEpisodeName = len(ep.EpisodeName)
+		}
+	}
+
+	// Print header
+	header := fmt.Sprintf("%-8s  %-*s  %-*s  %-*s  %s",
+		"Episode", maxCurrent, "Current Name", maxNew, "New Name", maxEpisodeName, "Episode Title", "Status")
+	fmt.Println(header)
+	fmt.Println(strings.Repeat("-", len(header)+10))
+
+	// Print episode rows
+	hasErrors := false
+	for _, ep := range info.Episodes {
+		currentStr := ep.CurrentName
+		if len(currentStr) > maxCurrent {
+			currentStr = currentStr[:maxCurrent-3] + "..."
+		}
+		newStr := ep.NewFilename
 		if len(newStr) > maxNew {
 			newStr = newStr[:maxNew-3] + "..."
 		}

@@ -2,8 +2,10 @@ package api
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
+	"strings"
 
 	"kodi-renamer/internal/tmdb"
 	"kodi-renamer/internal/tvdb"
@@ -20,6 +22,7 @@ type Manager struct {
 // UnifiedProposition represents a search result from any API source
 type UnifiedProposition struct {
 	ID           string
+	Name         string
 	Title        string
 	OriginalName string
 	Overview     string
@@ -27,6 +30,14 @@ type UnifiedProposition struct {
 	Type         string
 	Source       string
 	Score        float64
+}
+
+func (p *UnifiedProposition) GetYearAsInt() int {
+	year, err := strconv.Atoi(p.Year)
+	if err != nil {
+		fmt.Printf("Invalid year to format %s", p.Year)
+	}
+	return year
 }
 
 // UnifiedMovieProposition represents detailed movie information from any API source
@@ -52,23 +63,39 @@ type UnifiedSeriesProposition struct {
 	Source     string
 }
 
+// GetFolderName returns the properly formatted folder name for the series
+func (s *UnifiedSeriesProposition) GetFolderName() string {
+	cleanName := strings.ReplaceAll(s.Name, ":", " -")
+	cleanName = strings.ReplaceAll(cleanName, "/", " ")
+	if s.Year != "" {
+		return fmt.Sprintf("%s (%s)", cleanName, s.Year)
+	}
+	return cleanName
+}
+
 // UnifiedEpisodeInfo represents episode details from any API source
 type UnifiedEpisodeInfo struct {
 	SeriesName    string
 	SeasonNumber  int
 	EpisodeNumber int
 	EpisodeName   string
+	Name          string // Episode name (alias for EpisodeName for consistency)
 	Year          string
 	Source        string
 }
 
 // NewManager creates a new API manager with the provided API keys
-func NewManager(tvdbAPIKey, tmdbAPIKey string) (*Manager, error) {
+func NewManager(tvdbAPIKey, tmdbAPIKey string) *Manager {
 	m := &Manager{}
 
 	if tvdbAPIKey != "" {
 		m.tvdbClient = tvdb.NewClient(tvdbAPIKey)
 		m.hasTVDB = true
+		// Login to TVDB if configured
+		if err := m.tvdbClient.Login(); err != nil {
+			fmt.Printf("Warning: failed to authenticate with TVDB: %v\n", err)
+			m.hasTVDB = false
+		}
 	}
 
 	if tmdbAPIKey != "" {
@@ -76,18 +103,7 @@ func NewManager(tvdbAPIKey, tmdbAPIKey string) (*Manager, error) {
 		m.hasTMDB = true
 	}
 
-	if !m.hasTVDB && !m.hasTMDB {
-		return nil, fmt.Errorf("at least one API key must be provided (TVDB_API_KEY or TMDB_API_KEY)")
-	}
-
-	// Login to TVDB if configured
-	if m.hasTVDB {
-		if err := m.tvdbClient.Login(); err != nil {
-			return nil, fmt.Errorf("failed to authenticate with TVDB: %w", err)
-		}
-	}
-
-	return m, nil
+	return m
 }
 
 // GetConfiguredAPIs returns a list of API names that are currently configured
@@ -164,7 +180,7 @@ func (m *Manager) Search(query string) ([]UnifiedProposition, error) {
 }
 
 // SearchMovies searches specifically for movies across all configured APIs
-func (m *Manager) SearchMovies(query string) ([]UnifiedProposition, error) {
+func (m *Manager) SearchMovies(query string, year int) ([]UnifiedProposition, error) {
 	var allProps []UnifiedProposition
 
 	// Search TVDB
@@ -192,7 +208,7 @@ func (m *Manager) SearchMovies(query string) ([]UnifiedProposition, error) {
 
 	// Search TMDB
 	if m.hasTMDB {
-		tmdbResults, err := m.tmdbClient.SearchMovie(query)
+		tmdbResults, err := m.tmdbClient.SearchMovie(query, year)
 		if err != nil {
 			fmt.Printf("TMDB search warning: %v\n", err)
 		} else {
@@ -218,7 +234,10 @@ func (m *Manager) SearchMovies(query string) ([]UnifiedProposition, error) {
 		if allProps[i].Source == "tmdb" && allProps[j].Source == "tvdb" {
 			return false
 		}
-		return allProps[i].Score > allProps[j].Score
+		firstYear := allProps[i].GetYearAsInt() - year
+		nextYear := allProps[j].GetYearAsInt() - year
+		return math.Abs(float64(firstYear)) < math.Abs(float64(nextYear))
+		// return allProps[i].Score > allProps[j].Score
 	})
 
 	return allProps, nil
@@ -238,6 +257,7 @@ func (m *Manager) SearchSeries(query string) ([]UnifiedProposition, error) {
 				if prop.Type == "series" {
 					allProps = append(allProps, UnifiedProposition{
 						ID:           prop.ID,
+						Name:         prop.Title,
 						Title:        prop.Title,
 						OriginalName: prop.OriginalName,
 						Overview:     prop.Overview,
@@ -253,13 +273,14 @@ func (m *Manager) SearchSeries(query string) ([]UnifiedProposition, error) {
 
 	// Search TMDB
 	if m.hasTMDB {
-		tmdbResults, err := m.tmdbClient.SearchTV(query)
+		tmdbResults, err := m.tmdbClient.SearchTV(query, 0)
 		if err != nil {
 			fmt.Printf("TMDB search warning: %v\n", err)
 		} else {
 			for _, prop := range tmdbResults {
 				allProps = append(allProps, UnifiedProposition{
 					ID:           strconv.Itoa(prop.ID),
+					Name:         prop.Title,
 					Title:        prop.Title,
 					OriginalName: prop.OriginalName,
 					Overview:     prop.Overview,
@@ -408,6 +429,7 @@ func (m *Manager) GetEpisode(id, source string, season, episode int) (*UnifiedEp
 					SeasonNumber:  season,
 					EpisodeNumber: episode,
 					EpisodeName:   ep.Name,
+					Name:          ep.Name,
 					Year:          ep.Year,
 					Source:        "tvdb",
 				}, nil
@@ -432,6 +454,7 @@ func (m *Manager) GetEpisode(id, source string, season, episode int) (*UnifiedEp
 			SeasonNumber:  episodeInfo.SeasonNumber,
 			EpisodeNumber: episodeInfo.EpisodeNumber,
 			EpisodeName:   episodeInfo.EpisodeName,
+			Name:          episodeInfo.EpisodeName,
 			Year:          episodeInfo.Year,
 			Source:        "tmdb",
 		}, nil

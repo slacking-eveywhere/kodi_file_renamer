@@ -47,10 +47,11 @@ echo ""
 # Create test directories with new 4-directory structure
 TEST_DIR="test_rename_integration"
 MOVIE_DIR="$TEST_DIR/movies-to-rename"
+MOVIE_RENAMED_DIR="$TEST_DIR/movies-renamed"
 SERIE_DIR="$TEST_DIR/series-to-rename"
+SERIE_RENAMED_DIR="$TEST_DIR/series-renamed"
 rm -rf "$TEST_DIR"
-mkdir -p "$MOVIE_DIR"
-mkdir -p "$SERIE_DIR"
+mkdir -p "$MOVIE_DIR" "$SERIE_DIR" "$MOVIE_RENAMED_DIR" "$SERIE_RENAMED_DIR"
 
 echo -e "${YELLOW}Creating test file structure...${NC}"
 echo ""
@@ -71,6 +72,8 @@ touch "$SERIE_DIR/Stranger.Things/Stranger.Things.S01E02.mkv"
 # Create movie files with messy names
 # Note: Year is included in search by cleanMovieName, some may not match
 touch "$MOVIE_DIR/The.Dark.Knight.2008.mkv"
+mkdir "$MOVIE_DIR/The Matrix/"
+touch "$MOVIE_DIR/The Matrix/The Matrix.mkv"
 
 echo -e "${CYAN}Test structure created:${NC}"
 echo ""
@@ -92,7 +95,13 @@ echo ""
 
 echo "Running: ./kodi-renamer -movie-to-rename $MOVIE_DIR -serie-to-rename $SERIE_DIR -dry-run -auto"
 echo ""
-./kodi-renamer -movie-to-rename "$MOVIE_DIR" -serie-to-rename "$SERIE_DIR" -dry-run -auto 2>&1 | tee /tmp/dryrun_output.log
+./kodi-renamer \
+	-movie-to-rename "$MOVIE_DIR" \
+	-movie-renamed "$MOVIE_RENAMED_DIR" \
+	-serie-to-rename "$SERIE_DIR" \
+	-serie-renamed "$SERIE_RENAMED_DIR" \
+	-dry-run \
+	-auto 2>&1 | tee /tmp/dryrun_output.log
 
 echo ""
 echo -e "${BLUE}Verifying files are unchanged after dry-run...${NC}"
@@ -123,16 +132,21 @@ echo ""
 
 echo "Running: ./kodi-renamer -movie-to-rename $MOVIE_DIR -serie-to-rename $SERIE_DIR -auto"
 echo ""
-./kodi-renamer -movie-to-rename "$MOVIE_DIR" -serie-to-rename "$SERIE_DIR" -auto 2>&1 | tee /tmp/rename_output.log
+./kodi-renamer \
+	-movie-to-rename "$MOVIE_DIR" \
+	-movie-renamed "$MOVIE_RENAMED_DIR" \
+	-serie-to-rename "$SERIE_DIR" \
+	-serie-renamed "$SERIE_RENAMED_DIR" \
+	-auto 2>&1 | tee /tmp/rename_output.log
 
 echo ""
 echo -e "${BLUE}AFTER renaming:${NC}"
 echo "==============="
 echo "Movies:"
-find "$MOVIE_DIR" -type f | sort | sed 's/^/  /'
+find "$MOVIE_RENAMED_DIR" -type f | sort | sed 's/^/  /'
 echo "Series:"
-find "$SERIE_DIR" -type d -mindepth 1 | sort | sed 's/^/  Folder: /'
-find "$SERIE_DIR" -type f | sort | sed 's/^/  File:   /'
+find "$SERIE_RENAMED_DIR" -type d -mindepth 1 | sort | sed 's/^/  Folder: /'
+find "$SERIE_RENAMED_DIR" -type f | sort | sed 's/^/  File:   /'
 echo ""
 
 # =============================================================================
@@ -149,7 +163,7 @@ FAIL_COUNT=0
 # Check series folders were renamed with year
 echo -e "${CYAN}Checking series folder renames:${NC}"
 
-if [[ -d "$SERIE_DIR/Breaking Bad (2008)" ]]; then
+if [[ -d "$SERIE_RENAMED_DIR/Breaking Bad (2008)" ]]; then
 	echo -e "  ${GREEN}✓${NC} Breaking Bad (2008)/ folder exists"
 	((PASS_COUNT++))
 else
@@ -157,7 +171,7 @@ else
 	((FAIL_COUNT++))
 fi
 
-if [[ -d "$SERIE_DIR/Stranger Things (2016)" ]]; then
+if [[ -d "$SERIE_RENAMED_DIR/Stranger Things (2016)" ]]; then
 	echo -e "  ${GREEN}✓${NC} Stranger Things (2016)/ folder exists"
 	((PASS_COUNT++))
 else
@@ -169,7 +183,7 @@ echo ""
 echo -e "${CYAN}Checking series episode renames:${NC}"
 
 # Check Breaking Bad episodes
-if find "$SERIE_DIR/Breaking Bad"* -name "Breaking Bad S01E01 - Pilot.mkv" 2>/dev/null | grep -q .; then
+if find "$SERIE_RENAMED_DIR/Breaking Bad"* -name "Breaking Bad S01E01 - Pilot.mkv" 2>/dev/null | grep -q .; then
 	echo -e "  ${GREEN}✓${NC} Breaking Bad S01E01 - Pilot.mkv"
 	((PASS_COUNT++))
 else
@@ -177,7 +191,7 @@ else
 	((FAIL_COUNT++))
 fi
 
-if find "$SERIE_DIR/Breaking Bad"* -name "Breaking Bad S01E02*.mkv" 2>/dev/null | grep -q .; then
+if find "$SERIE_RENAMED_DIR/Breaking Bad"* -name "Breaking Bad S01E02*.mkv" 2>/dev/null | grep -q .; then
 	echo -e "  ${GREEN}✓${NC} Breaking Bad S01E02 episode renamed"
 	((PASS_COUNT++))
 else
@@ -186,7 +200,7 @@ else
 fi
 
 # Check Stranger Things episodes
-if find "$SERIE_DIR/Stranger Things"* -name "Stranger Things S01E01 - *.mkv" 2>/dev/null | grep -q .; then
+if find "$SERIE_RENAMED_DIR/Stranger Things"* -name "Stranger Things S01E01 - *.mkv" 2>/dev/null | grep -q .; then
 	echo -e "  ${GREEN}✓${NC} Stranger Things S01E01 episode renamed"
 	((PASS_COUNT++))
 else
@@ -194,7 +208,7 @@ else
 	((FAIL_COUNT++))
 fi
 
-if find "$SERIE_DIR/Stranger Things"* -name "Stranger Things S01E02 - *.mkv" 2>/dev/null | grep -q .; then
+if find "$SERIE_RENAMED_DIR/Stranger Things"* -name "Stranger Things S01E02 - *.mkv" 2>/dev/null | grep -q .; then
 	echo -e "  ${GREEN}✓${NC} Stranger Things S01E02 episode renamed"
 	((PASS_COUNT++))
 else
@@ -205,8 +219,8 @@ fi
 echo ""
 echo -e "${CYAN}Checking movie renames:${NC}"
 
-# Check movies (only The Dark Knight should rename successfully with current API)
-if [[ -f "$MOVIE_DIR/The Dark Knight (2008).mkv" ]]; then
+# Check movies
+if [[ -f "$MOVIE_RENAMED_DIR/The Dark Knight (2008)/The Dark Knight (2008).mkv" ]]; then
 	echo -e "  ${GREEN}✓${NC} The Dark Knight (2008).mkv"
 	((PASS_COUNT++))
 else
@@ -214,10 +228,18 @@ else
 	((FAIL_COUNT++))
 fi
 
+if [[ -f "$MOVIE_RENAMED_DIR/The Matrix (1999)/The Matrix (1999).mkv" ]]; then
+	echo -e "  ${GREEN}✓${NC} Matrix (1999).mkv"
+	((PASS_COUNT++))
+else
+	echo -e "  ${RED}✗${NC} The Matrix (1999).mkv NOT found"
+	((FAIL_COUNT++))
+fi
+
 echo ""
 echo -e "${CYAN}Checking old files are gone:${NC}"
 
-if [[ ! -d "$SERIE_DIR/Breaking.Bad" ]] && [[ ! -d "$SERIE_DIR/Stranger.Things" ]]; then
+if [[ ! -d "$SERIE_RENAMED_DIR/Breaking.Bad" ]] && [[ ! -d "$SERIE_RENAMED_DIR/Stranger.Things" ]]; then
 	echo -e "  ${GREEN}✓${NC} Old series folders removed"
 	((PASS_COUNT++))
 else
@@ -226,7 +248,7 @@ else
 fi
 
 # Check that files follow Kodi naming convention
-if find "$SERIE_DIR" -name "*S[0-9][0-9]E[0-9][0-9] - *.mkv" 2>/dev/null | grep -q .; then
+if find "$SERIE_RENAMED_DIR" -name "*S[0-9][0-9]E[0-9][0-9] - *.mkv" 2>/dev/null | grep -q .; then
 	echo -e "  ${GREEN}✓${NC} Episode files follow Kodi naming convention"
 	((PASS_COUNT++))
 else
@@ -257,7 +279,13 @@ else
 	echo ""
 	echo "Please check the output above for details."
 fi
-rm -rf ${TEST_DIR}
+# Cleanup
+read -p "Clean up test files? (y/n) " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+	rm -rf "$TEST_DIR"
+	echo -e "${GREEN}Test files cleaned up!${NC}"
+fi
 echo ""
 echo "Logs saved to:"
 echo "  - /tmp/dryrun_output.log"
