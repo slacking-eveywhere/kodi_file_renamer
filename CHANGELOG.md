@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+#### Filename Sanitization Bug
+- **Invalid filesystem characters** - Fixed critical bug where renaming failed when movie/episode names contained characters invalid in Unix or Windows filesystems
+- **Cross-platform compatibility** - Now handles `/`, `\`, `:`, `<`, `>`, `|`, `?`, `*`, `"` and control characters
+- **Comprehensive sanitization** - Created `utils.SanitizeFilename()` function that sanitizes all filenames and folder names
+- **Smart replacements** - Invalid characters replaced intelligently (`:` → ` -`, `|` → `-`, `"` → `'`) instead of just removed
+- **Consistent behavior** - Same sanitization applied to all filename generation functions
+
+#### Implementation Details
+- New shared utility package: `internal/utils/filename.go`
+- Comprehensive test suite: `internal/utils/filename_test.go` with 20+ test cases
+- Updated all filename generation methods:
+  - `MediaFile.GetEpisodeFilename()` - Series episode filenames
+  - `MediaFile.GetNewFilename()` - General new filenames
+  - `MediaFile.GetMovieFilename()` - Movie filenames
+  - `MediaFile.GetMovieFolderName()` - Movie folder names
+  - `MediaFile.GetSeriesFolderName()` - Series folder names
+  - `UnifiedSeriesProposition.GetFolderName()` - API series folder names
+
+#### Sanitization Rules
+- `:` (colon) → ` -` (space-dash for readability)
+- `/` (forward slash) → ` ` (space)
+- `\` (backslash) → ` ` (space)
+- `<`, `>` → removed
+- `|` (pipe) → `-` (dash)
+- `?`, `*` → removed
+- `"` (double quote) → `'` (single quote)
+- Control characters (ASCII 0-31) → removed
+- Leading/trailing spaces and dots → trimmed
+- Multiple consecutive spaces → collapsed to single space
+
+#### Examples
+- `Alien: Covenant` → `Alien - Covenant`
+- `24/7` → `24 7`
+- `Marvel's What If...?` → `Marvel's What If...`
+- `Star Wars: Episode V: The Empire Strikes Back` → `Star Wars - Episode V - The Empire Strikes Back`
+- `The One / The Other` → `The One The Other`
+- `Movie "The Best"` → `Movie 'The Best'`
+
+#### Benefits
+- ✅ Works on Windows, macOS, Linux, and NAS systems
+- ✅ No more rename failures due to invalid characters
+- ✅ Filenames remain readable and descriptive
+- ✅ Automatic - no user action required
+- ✅ Fully tested with real-world examples
+
 ## [2.1.0] - 2024-02-08
 
 ### Added

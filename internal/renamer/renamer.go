@@ -31,11 +31,21 @@ func (r *Renamer) RenameFileSilent(oldPath, newFilename string) error {
 
 // renameFileWithOutput is the internal implementation with optional silent mode
 func (r *Renamer) renameFileWithOutput(oldPath, newFilename string, silent bool) error {
+	// Validate the new filename
+	if err := validateFilename(newFilename); err != nil {
+		return fmt.Errorf("invalid filename: %w", err)
+	}
+
 	dir := filepath.Dir(oldPath)
 	newPath := filepath.Join(dir, newFilename)
 
 	if oldPath == newPath {
 		return nil
+	}
+
+	// Verify source file exists
+	if _, err := os.Stat(oldPath); err != nil {
+		return fmt.Errorf("source file does not exist: %s", oldPath)
 	}
 
 	if _, err := os.Stat(newPath); err == nil {
@@ -51,6 +61,11 @@ func (r *Renamer) renameFileWithOutput(oldPath, newFilename string, silent bool)
 
 	if err := os.Rename(oldPath, newPath); err != nil {
 		return fmt.Errorf("failed to rename file: %w", err)
+	}
+
+	// Verify the rename was successful
+	if _, err := os.Stat(newPath); err != nil {
+		return fmt.Errorf("rename appeared to succeed but file not found at new path: %s", newPath)
 	}
 
 	if !silent {
@@ -331,4 +346,74 @@ func findSubtitleFiles(dir, videoNameWithoutExt string) ([]string, error) {
 	}
 
 	return subtitles, nil
+}
+
+// validateFilename checks if a filename is valid and safe to use
+func validateFilename(filename string) error {
+	if filename == "" {
+		return fmt.Errorf("filename cannot be empty")
+	}
+
+	// Check for path separators (shouldn't be in filename only)
+	if strings.Contains(filename, string(filepath.Separator)) || strings.Contains(filename, "/") || strings.Contains(filename, "\\") {
+		return fmt.Errorf("filename cannot contain path separators: %s", filename)
+	}
+
+	// Check for invalid characters that might indicate corruption
+	invalidChars := []string{"\x00", "\n", "\r", "\t"}
+	for _, char := range invalidChars {
+		if strings.Contains(filename, char) {
+			return fmt.Errorf("filename contains invalid control characters")
+		}
+	}
+
+	// Check if filename is suspiciously short or random-looking (potential corruption)
+	if len(filename) < 3 {
+		return fmt.Errorf("filename is too short: %s", filename)
+	}
+
+	// Check for filenames that look corrupted (all uppercase random chars with no spaces)
+	if len(filename) < 15 && isLikelyCorrupted(filename) {
+		return fmt.Errorf("filename appears corrupted: %s", filename)
+	}
+
+	return nil
+}
+
+// isLikelyCorrupted checks if a filename looks like random corrupted data
+func isLikelyCorrupted(filename string) bool {
+	// Remove extension
+	nameWithoutExt := strings.TrimSuffix(filename, filepath.Ext(filename))
+
+	if len(nameWithoutExt) == 0 {
+		return false
+	}
+
+	// Count alphanumeric vs special characters
+	alphaCount := 0
+	specialCount := 0
+	upperCount := 0
+
+	for _, r := range nameWithoutExt {
+		if (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			alphaCount++
+			if r >= 'A' && r <= 'Z' {
+				upperCount++
+			}
+		} else if r != ' ' && r != '-' && r != '_' {
+			specialCount++
+		}
+	}
+
+	// If mostly uppercase with special chars and short, likely corrupted
+	if len(nameWithoutExt) < 12 && upperCount == alphaCount && specialCount > 1 {
+		return true
+	}
+
+	// If starts with underscore and has lots of special chars, likely corrupted
+	if strings.HasPrefix(nameWithoutExt, "_") && specialCount > len(nameWithoutExt)/3 {
+		return true
+	}
+
+	return false
 }

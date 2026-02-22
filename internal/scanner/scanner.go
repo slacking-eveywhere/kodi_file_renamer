@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"kodi-renamer/internal/utils"
 )
 
 var (
@@ -419,31 +421,34 @@ func (m *MediaFile) GetSearchQuery() string {
 // GetNewFilename generates a properly formatted filename for a TV series episode
 func (m *MediaFile) GetNewFilename(seriesName, episodeName string) string {
 	if m.IsSeries {
+		cleanSeriesName := utils.SanitizeFilename(seriesName)
+		cleanEpisodeName := utils.SanitizeFilename(episodeName)
 		seasonStr := fmt.Sprintf("S%02d", m.Season)
 		episodeStr := fmt.Sprintf("E%02d", m.Episode)
-		if episodeName != "" {
-			return fmt.Sprintf("%s %s%s - %s%s", seriesName, seasonStr, episodeStr, episodeName, m.Extension)
+		if cleanEpisodeName != "" {
+			return fmt.Sprintf("%s %s%s - %s%s", cleanSeriesName, seasonStr, episodeStr, cleanEpisodeName, m.Extension)
 		}
-		return fmt.Sprintf("%s %s%s%s", seriesName, seasonStr, episodeStr, m.Extension)
+		return fmt.Sprintf("%s %s%s%s", cleanSeriesName, seasonStr, episodeStr, m.Extension)
 	}
 	return m.Name
 }
 
 // GetEpisodeFilename returns the formatted filename for a series episode
 func (m *MediaFile) GetEpisodeFilename(seriesName string, season, episode int, episodeName string) string {
+	cleanSeriesName := utils.SanitizeFilename(seriesName)
+	cleanEpisodeName := utils.SanitizeFilename(episodeName)
 	seasonStr := fmt.Sprintf("S%02d", season)
 	episodeStr := fmt.Sprintf("E%02d", episode)
-	if episodeName != "" {
-		return fmt.Sprintf("%s %s%s - %s%s", seriesName, seasonStr, episodeStr, episodeName, m.Extension)
+	if cleanEpisodeName != "" {
+		return fmt.Sprintf("%s %s%s - %s%s", cleanSeriesName, seasonStr, episodeStr, cleanEpisodeName, m.Extension)
 	}
-	return fmt.Sprintf("%s %s%s%s", seriesName, seasonStr, episodeStr, m.Extension)
+	return fmt.Sprintf("%s %s%s%s", cleanSeriesName, seasonStr, episodeStr, m.Extension)
 }
 
 // GetMovieFilename generates a properly formatted filename for a movie
 func (m *MediaFile) GetMovieFilename(title string, year string) string {
 	if m.IsMovie {
-		cleanTitle := strings.ReplaceAll(title, ":", " -")
-		cleanTitle = strings.ReplaceAll(cleanTitle, "/", " ")
+		cleanTitle := utils.SanitizeFilename(title)
 		if year != "" {
 			return fmt.Sprintf("%s (%s)%s", cleanTitle, year, m.Extension)
 		}
@@ -455,8 +460,7 @@ func (m *MediaFile) GetMovieFilename(title string, year string) string {
 // GetMovieFolderName generates a properly formatted folder name for a movie
 func (m *MediaFile) GetMovieFolderName(title string, year string) string {
 	if m.IsMovie {
-		cleanTitle := strings.ReplaceAll(title, ":", " -")
-		cleanTitle = strings.ReplaceAll(cleanTitle, "/", " ")
+		cleanTitle := utils.SanitizeFilename(title)
 		if year != "" {
 			return fmt.Sprintf("%s (%s)", cleanTitle, year)
 		}
@@ -468,8 +472,7 @@ func (m *MediaFile) GetMovieFolderName(title string, year string) string {
 // GetSeriesFolderName generates a properly formatted folder name for a TV series
 func (m *MediaFile) GetSeriesFolderName(seriesName, year string) string {
 	if m.IsSeries {
-		cleanName := strings.ReplaceAll(seriesName, ":", " -")
-		cleanName = strings.ReplaceAll(cleanName, "/", " ")
+		cleanName := utils.SanitizeFilename(seriesName)
 		if year != "" {
 			return fmt.Sprintf("%s (%s)", cleanName, year)
 		}

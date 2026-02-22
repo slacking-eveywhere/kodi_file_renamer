@@ -5,10 +5,10 @@ import (
 	"math"
 	"sort"
 	"strconv"
-	"strings"
 
 	"kodi-renamer/internal/tmdb"
 	"kodi-renamer/internal/tvdb"
+	"kodi-renamer/internal/utils"
 )
 
 // Manager orchestrates multiple API clients (TVDB and TMDB) for media search
@@ -65,8 +65,7 @@ type UnifiedSeriesProposition struct {
 
 // GetFolderName returns the properly formatted folder name for the series
 func (s *UnifiedSeriesProposition) GetFolderName() string {
-	cleanName := strings.ReplaceAll(s.Name, ":", " -")
-	cleanName = strings.ReplaceAll(cleanName, "/", " ")
+	cleanName := utils.SanitizeFilename(s.Name)
 	if s.Year != "" {
 		return fmt.Sprintf("%s (%s)", cleanName, s.Year)
 	}

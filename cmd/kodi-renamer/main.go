@@ -340,32 +340,44 @@ func processSeriesBatch(parentDir string, episodes []*scanner.MediaFile, apiMana
 			}
 		}
 	} else {
-		if batch.NeedsFolderRename {
-			newFolderPath, err := fileRenamer.RenameSeriesFolder(batch.OriginalFolderPath, batch.NewFolderName)
-			if err != nil {
-				return fmt.Errorf("failed to rename series folder: %w", err)
-			}
-			batch.OriginalFolderPath = newFolderPath
-		}
-
+		// First, rename all episode files while folder still has original name
+		successCount := 0
 		for _, task := range batch.Episodes {
 			if task.HasError {
 				interactive.PrintWarning(fmt.Sprintf("Skipping S%02dE%02d: %s", task.Season, task.Episode, task.ErrorMessage))
 				continue
 			}
 
+			// Verify source file exists before attempting rename
 			oldPath := task.File.Path
-			if batch.NeedsFolderRename && !dryRun {
-				oldPath = filepath.Join(batch.OriginalFolderPath, task.File.Name)
+			if _, err := os.Stat(oldPath); err != nil {
+				interactive.PrintError(fmt.Sprintf("File not found: %s - %v", oldPath, err))
+				continue
 			}
 
 			if err := fileRenamer.RenameFileSilent(oldPath, task.NewFilename); err != nil {
 				interactive.PrintError(fmt.Sprintf("Failed to rename %s: %v", task.File.Name, err))
+			} else {
+				successCount++
+			}
+		}
+
+		// After all files are renamed, rename the folder if needed
+		if batch.NeedsFolderRename {
+			if !dryRun {
+				newFolderPath, err := fileRenamer.RenameSeriesFolder(batch.OriginalFolderPath, batch.NewFolderName)
+				if err != nil {
+					interactive.PrintError(fmt.Sprintf("Failed to rename series folder: %v", err))
+				} else {
+					fmt.Printf("Renamed series folder:\n  FROM: %s\n  TO:   %s\n\n", batch.OriginalFolderPath, newFolderPath)
+				}
+			} else {
+				fmt.Printf("[DRY RUN] Would rename folder:\n  FROM: %s\n  TO:   %s\n\n", batch.OriginalFolderPath, filepath.Join(filepath.Dir(batch.OriginalFolderPath), batch.NewFolderName))
 			}
 		}
 
 		if !dryRun {
-			fmt.Printf("\nSuccessfully renamed %d episode(s) in series '%s'\n\n", len(batch.Episodes), batch.SeriesName)
+			fmt.Printf("\nSuccessfully renamed %d/%d episode(s) in series '%s'\n\n", successCount, len(batch.Episodes), batch.SeriesName)
 		}
 	}
 
